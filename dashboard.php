@@ -44,12 +44,19 @@ $fullName = $_SESSION['full_name'];
             border-bottom: 1px solid rgba(255,255,255,0.1);
         }
         
+<<<<<<< HEAD
         .sidebar-brand img {
             width: 48px;
             height: 48px;
             object-fit: contain;
             margin-right: 12px;
             flex-shrink: 0;
+=======
+        .sidebar-brand i {
+            font-size: 28px;
+            color: #ffd700;
+            margin-right: 12px;
+>>>>>>> origin/main
         }
         
         .sidebar-nav { padding: 15px 0; }
@@ -379,7 +386,11 @@ $fullName = $_SESSION['full_name'];
     <!-- Sidebar -->
     <div class="sidebar">
         <div class="sidebar-brand">
+<<<<<<< HEAD
             <img src="assets/logo.png" alt="Star Frappe logo">
+=======
+            <i class="fas fa-star"></i>
+>>>>>>> origin/main
             <span>Star Frappe</span>
         </div>
         <nav class="sidebar-nav">

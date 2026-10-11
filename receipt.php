@@ -212,6 +212,7 @@ foreach ($allSales as $s) {
             font-size: 24px;
             margin-bottom: 5px;
         }
+<<<<<<< HEAD
 
         .receipt-header .brand-logo {
             display: block;
@@ -220,6 +221,8 @@ foreach ($allSales as $s) {
             height: auto;
             margin: 0 auto 10px;
         }
+=======
+>>>>>>> origin/main
         
         .receipt-header p {
             color: #666;
@@ -561,7 +564,11 @@ foreach ($allSales as $s) {
     <!-- Single Receipt View -->
     <div class="receipt-container" id="receipt">
         <div class="receipt-header">
+<<<<<<< HEAD
             <img src="assets/logo.png" alt="Star Frappe logo" class="brand-logo">
+=======
+            <h2>⭐ Star Frappe Shop</h2>
+>>>>>>> origin/main
             <p>Point of Sale Receipt</p>
         </div>
         

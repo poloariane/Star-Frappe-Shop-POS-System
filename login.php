@@ -99,12 +99,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             left: -50px;
         }
         
+<<<<<<< HEAD
         .brand-logo {
             width: 270px;
             max-width: 100%;
             height: auto;
             margin-bottom: 20px;
             border-radius: 12px;
+=======
+        .brand-icon {
+            font-size: 80px;
+            color: #ffd700;
+            margin-bottom: 20px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .login-left h1 {
+            font-size: 32px;
+            text-align: center;
+            margin-bottom: 10px;
+>>>>>>> origin/main
         }
         
         .login-left p {
@@ -210,13 +229,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         @media (max-width: 768px) {
             .login-container { flex-direction: column; }
             .login-left, .login-right { width: 100%; padding: 40px 30px; }
+<<<<<<< HEAD
+=======
+            .brand-icon { font-size: 50px; }
+            .login-left h1 { font-size: 24px; }
+>>>>>>> origin/main
         }
     </style>
 </head>
 <body>
     <div class="login-container">
         <div class="login-left">
+<<<<<<< HEAD
             <img src="assets/logo.png" alt="Star Frappe logo" class="brand-logo">
+=======
+            <i class="fas fa-star brand-icon"></i>
+            <h1>Star Frappe Shop</h1>
+>>>>>>> origin/main
             <p>Point of Sale System</p>
         </div>
         <div class="login-right">

@@ -48,15 +48,12 @@ requireLogin();
             gap: 10px;
             font-size: 22px;
         }
-<<<<<<< HEAD
 
         .pos-header .brand-logo {
             width: 42px;
             height: 42px;
             object-fit: contain;
         }
-=======
->>>>>>> origin/main
         
         .back-btn {
             padding: 10px 20px;
@@ -307,11 +304,7 @@ requireLogin();
         <!-- Menu Section -->
         <div class="menu-section">
             <div class="pos-header">
-<<<<<<< HEAD
                 <h1><img src="assets/logo.png" alt="Star Frappe logo" class="brand-logo"> Star Frappe Shop POS</h1>
-=======
-                <h1><i class="fas fa-star"></i> Star Frappe Shop POS</h1>
->>>>>>> origin/main
                 <div>
                     <span style="color: #666; margin-right: 15px;"><?= date('M d, Y h:i A') ?></span>
                     <a href="dashboard.php" class="back-btn">
@@ -393,20 +386,30 @@ requireLogin();
             }
         }
         
-        function renderProducts(items) {
+                        function renderProducts(items) {
             const grid = document.getElementById('products-grid');
             if (items.length === 0) {
                 grid.innerHTML = '<p style="color:#999; grid-column: 1/-1; text-align:center; padding:40px;">No products available</p>';
                 return;
             }
             
-            grid.innerHTML = items.map(p => `
+            grid.innerHTML = items.map(p => {
+                // Logic para malaman kung may image o wala
+                let displayIcon = '';
+                if (p.image_path) {
+                    displayIcon = `<img src="${p.image_path}" alt="${p.name}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 10px; margin-bottom: 10px;">`;
+                } else {
+                    displayIcon = `<div class="emoji">${p.emoji || '🍽️'}</div>`;
+                }
+
+                return `
                 <div class="product-card" onclick="addToCart(${p.id}, '${p.name.replace(/'/g, "\\'")}', ${p.price})">
-                    <div class="emoji">${p.emoji || '🍽️'}</div>
+                    ${displayIcon}
                     <h4>${p.name}</h4>
                     <div class="price">₱${parseFloat(p.price).toFixed(2)}</div>
                 </div>
-            `).join('');
+                `;
+            }).join('');
         }
         
         function filterCategory(cat, btn) {

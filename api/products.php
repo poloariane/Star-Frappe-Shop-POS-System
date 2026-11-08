@@ -17,6 +17,7 @@ if ($action === 'list') {
             p.price,
             p.description,
             p.emoji,
+            p.image_path,
             p.status,
             c.category_name AS category,
             c.category_id
@@ -49,6 +50,7 @@ if ($action === 'get' && isset($_GET['id'])) {
             p.price,
             p.description,
             p.emoji,
+            p.image_path,
             p.status,
             c.category_name AS category,
             c.category_id

@@ -1,6 +1,7 @@
 <?php
 require_once 'config/database.php';
 requireLogin();
+$currentPage = basename($_SERVER['PHP_SELF']);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -16,11 +17,28 @@ requireLogin();
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: #f5f7f5;
             min-height: 100vh;
+            overflow: hidden; /* Para hindi mag-scroll ang buong page, dun lang sa menu at cart */
         }
-        
+
+        /* =========================================
+           SIDEBAR NAVIGATION
+        ========================================= */
+        .sidebar { position: fixed; left: 0; top: 0; width: 260px; height: 100vh; background: linear-gradient(180deg, #1a472a 0%, #0d2b18 100%); padding: 20px 0; z-index: 1000; overflow-y: auto; }
+        .sidebar-brand { display: flex; align-items: center; padding: 0 25px 25px; color: white; font-size: 22px; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .sidebar-brand img { width: 48px; height: 48px; object-fit: contain; margin-right: 12px; flex-shrink: 0; }
+        .sidebar-nav { padding: 15px 0; }
+        .sidebar-nav a { display: flex; align-items: center; padding: 14px 25px; color: rgba(255,255,255,0.7); text-decoration: none; transition: all 0.3s; border-left: 3px solid transparent; font-size: 15px; }
+        .sidebar-nav a i { width: 25px; margin-right: 12px; font-size: 18px; }
+        .sidebar-nav a:hover, .sidebar-nav a.active { background: rgba(255,255,255,0.1); color: white; border-left-color: #ffd700; }
+        .sidebar-nav .logout-link { margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px; }
+
+        /* =========================================
+           POS LAYOUT
+        ========================================= */
         .pos-container {
             display: flex;
-            min-height: 100vh;
+            height: 100vh; /* Full height */
+            margin-left: 260px; /* Ibaba para hindi matakpan ng sidebar */
         }
         
         /* Left - Menu */
@@ -31,16 +49,16 @@ requireLogin();
         }
         
         .pos-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: white;
-    padding: 15px 25px;
-    border-radius: 15px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    min-height: 75px; /* Para may enough space yung dalawang linya sa kanan */
-}
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            padding: 15px 25px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            min-height: 75px; 
+        }
         
         .pos-header h1 {
             color: #1a472a;
@@ -54,26 +72,6 @@ requireLogin();
             width: 42px;
             height: 42px;
             object-fit: contain;
-        }
-        
-        .back-btn {
-            padding: 10px 20px;
-            background: #f0f5f0;
-            color: #1a472a;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-weight: 600;
-            transition: all 0.3s;
-        }
-        
-        .back-btn:hover {
-            background: #1a472a;
-            color: white;
         }
         
         .category-tabs {
@@ -147,6 +145,7 @@ requireLogin();
             display: flex;
             flex-direction: column;
             box-shadow: -5px 0 20px rgba(0,0,0,0.05);
+            height: 100vh; /* Full height */
         }
         
         .cart-header {
@@ -232,6 +231,7 @@ requireLogin();
         .cart-footer {
             padding: 20px 25px;
             border-top: 1px solid #f0f0f0;
+            background: white;
         }
         
         .cart-total {
@@ -293,34 +293,79 @@ requireLogin();
             background: #dc3545;
             color: white;
         }
-        
+
+        /* Responsive */
+        @media (max-width: 992px) {
+            .sidebar { width: 70px; }
+            .sidebar-brand span, .sidebar-nav a span { display: none; }
+            .sidebar-nav a i { margin-right: 0; font-size: 22px; }
+            .pos-container { margin-left: 70px; }
+        }
+
         @media (max-width: 900px) {
-            .pos-container { flex-direction: column; }
-            .cart-section { width: 100%; }
+            body { overflow: auto; }
+            .pos-container { flex-direction: column; height: auto; }
+            .cart-section { width: 100%; height: auto; }
         }
     </style>
 </head>
 <body>
+    <!-- SIDEBAR NAVIGATION -->
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <img src="assets/logo.png" alt="Star Frappe logo">
+            <span>Star Frappe</span>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="dashboard.php" class="<?= $currentPage == 'dashboard.php' ? 'active' : '' ?>">
+                <i class="fas fa-chart-pie"></i> <span>Dashboard</span>
+            </a>
+            <?php if (isStaff()): ?>
+            <a href="pos.php" class="<?= $currentPage == 'pos.php' ? 'active' : '' ?>">
+                <i class="fas fa-cash-register"></i> <span>POS System</span>
+            </a>
+            <?php endif; ?>
+            <?php if (isAdmin()): ?>
+            <a href="manage.php" class="<?= $currentPage == 'manage.php' ? 'active' : '' ?>">
+                <i class="fas fa-users-cog"></i> <span>Manage Staff/Products</span>
+            </a>
+            <?php endif; ?>
+            <a href="inventory.php" class="<?= $currentPage == 'inventory.php' ? 'active' : '' ?>">
+                <i class="fas fa-boxes"></i> <span>Inventory</span>
+            </a>
+            <a href="expenses.php" class="<?= $currentPage == 'expenses.php' ? 'active' : '' ?>">
+                <i class="fas fa-money-bill-transfer"></i> <span>Expenses</span>
+            </a>
+            <a href="receipt.php" class="<?= $currentPage == 'receipt.php' ? 'active' : '' ?>">
+                <i class="fas fa-receipt"></i> <span>Receipts</span>
+            </a>
+            <?php if (isAdmin()): ?>
+            <a href="revenue_reports.php" class="<?= $currentPage == 'revenue_reports.php' ? 'active' : '' ?>">
+                <i class="fas fa-chart-line"></i> <span>Revenue Reports</span>
+            </a>
+            <?php endif; ?>
+            <a href="logout.php" class="logout-link">
+                <i class="fas fa-sign-out-alt"></i> <span>Logout</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- POS LAYOUT (Naka-move sa kanan dahil sa margin-left) -->
     <div class="pos-container">
         <!-- Menu Section -->
         <div class="menu-section">
             <div class="pos-header">
-    <!-- Kaliwang bahagi: Logo at Title -->
-    <h1><img src="assets/logo.png" alt="Star Frappe logo" class="brand-logo"> Star Frappe Shop POS</h1>
-    
-    <!-- Kanang bahagi: Cashier Name, Date, at Back Button -->
-    <div style="text-align: right;">
-        <div style="color: #1a472a; font-weight: 700; font-size: 15px; margin-bottom: 4px;">
-            <i class="fas fa-user-circle"></i> Cashier: <?= htmlspecialchars($_SESSION['full_name']) ?>
-        </div>
-        <div style="display: flex; align-items: center; gap: 15px;">
-            <span style="color: #666; font-size: 13px;"><?= date('M d, Y h:i A') ?></span>
-            <a href="dashboard.php" class="back-btn">
-                <i class="fas fa-arrow-left"></i> Back
-            </a>
-        </div>
-    </div>
-</div>
+                <h1><img src="assets/logo.png" alt="Star Frappe logo" class="brand-logo"> Star Frappe Shop POS</h1>
+                
+                <div style="text-align: right;">
+                    <div style="color: #1a472a; font-weight: 700; font-size: 15px; margin-bottom: 4px;">
+                        <i class="fas fa-user-circle"></i> Cashier: <?= htmlspecialchars($_SESSION['full_name']) ?>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 15px; justify-content: flex-end;">
+                        <span style="color: #666; font-size: 13px;"><?= date('M d, Y h:i A') ?></span>
+                    </div>
+                </div>
+            </div>
             
             <div class="category-tabs" id="category-tabs">
                 <button class="category-tab active" onclick="filterCategory('all', this)">All</button>
@@ -395,7 +440,7 @@ requireLogin();
             }
         }
         
-                        function renderProducts(items) {
+        function renderProducts(items) {
             const grid = document.getElementById('products-grid');
             if (items.length === 0) {
                 grid.innerHTML = '<p style="color:#999; grid-column: 1/-1; text-align:center; padding:40px;">No products available</p>';

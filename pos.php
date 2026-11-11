@@ -31,15 +31,16 @@ requireLogin();
         }
         
         .pos-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: white;
-            padding: 15px 25px;
-            border-radius: 15px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        }
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: white;
+    padding: 15px 25px;
+    border-radius: 15px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    min-height: 75px; /* Para may enough space yung dalawang linya sa kanan */
+}
         
         .pos-header h1 {
             color: #1a472a;
@@ -304,14 +305,22 @@ requireLogin();
         <!-- Menu Section -->
         <div class="menu-section">
             <div class="pos-header">
-                <h1><img src="assets/logo.png" alt="Star Frappe logo" class="brand-logo"> Star Frappe Shop POS</h1>
-                <div>
-                    <span style="color: #666; margin-right: 15px;"><?= date('M d, Y h:i A') ?></span>
-                    <a href="dashboard.php" class="back-btn">
-                        <i class="fas fa-arrow-left"></i> Back
-                    </a>
-                </div>
-            </div>
+    <!-- Kaliwang bahagi: Logo at Title -->
+    <h1><img src="assets/logo.png" alt="Star Frappe logo" class="brand-logo"> Star Frappe Shop POS</h1>
+    
+    <!-- Kanang bahagi: Cashier Name, Date, at Back Button -->
+    <div style="text-align: right;">
+        <div style="color: #1a472a; font-weight: 700; font-size: 15px; margin-bottom: 4px;">
+            <i class="fas fa-user-circle"></i> Cashier: <?= htmlspecialchars($_SESSION['full_name']) ?>
+        </div>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <span style="color: #666; font-size: 13px;"><?= date('M d, Y h:i A') ?></span>
+            <a href="dashboard.php" class="back-btn">
+                <i class="fas fa-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+</div>
             
             <div class="category-tabs" id="category-tabs">
                 <button class="category-tab active" onclick="filterCategory('all', this)">All</button>

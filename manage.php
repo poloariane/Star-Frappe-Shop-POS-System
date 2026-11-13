@@ -15,6 +15,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_product'])) {
     $description = trim($_POST['description']);
     $emoji = trim($_POST['emoji']);
     $imagePath = NULL; 
+    $defaultVariantName = trim((string)($_POST['default_variant_name'] ?? ''));
+    if ($defaultVariantName === '') {
+        $defaultVariantName = 'Default';
+    }
+    $variantNames = $_POST['variant_name'] ?? [];
+    $variantPrices = $_POST['variant_price'] ?? [];
+    $variants = [];
+    $variantError = '';
+
+    if (!is_array($variantNames) || !is_array($variantPrices) || count($variantNames) !== count($variantPrices)) {
+        $variantError = 'Invalid product variants';
+    } else {
+        $seenVariants = [strtolower($defaultVariantName) => true];
+        foreach ($variantNames as $index => $variantName) {
+            $variantName = trim((string)$variantName);
+            $variantPrice = trim((string)$variantPrices[$index]);
+            if ($variantName === '' && $variantPrice === '') {
+                continue;
+            }
+            if ($variantName === '' || $variantPrice === '' || !is_numeric($variantPrice) || !is_finite((float)$variantPrice) || (float)$variantPrice <= 0) {
+                $variantError = 'Each variant needs a name and a price greater than zero';
+                break;
+            }
+            $variantKey = strtolower($variantName);
+            if (strlen($variantName) > 80 || strlen($defaultVariantName) > 80 || isset($seenVariants[$variantKey])) {
+                $variantError = 'Option names must be unique and no longer than 80 characters';
+                break;
+            }
+            $seenVariants[$variantKey] = true;
+            $variants[] = ['name' => $variantName, 'price' => (float)$variantPrice];
+        }
+    }
 
     // Image Upload Logic (Inayos ang quotes dito)
     if (isset($_FILES['product_image']) && $_FILES['product_image']['error'] === UPLOAD_ERR_OK) {
@@ -37,20 +69,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_product'])) {
         }
     }
     
-    if (empty($name) || $price <= 0 || $categoryId <= 0) {
-        $message = 'Please provide valid product details';
+    if (empty($name) || $price <= 0 || $categoryId <= 0 || strlen($defaultVariantName) > 80 || $variantError !== '') {
+        $message = $variantError !== '' ? $variantError : 'Please provide valid product details';
         $messageType = 'error';
     } else {
-        $stmt = $pdo->prepare("
-            INSERT INTO product (product_name, category_id, price, description, emoji, image_path, status) 
-            VALUES (?, ?, ?, ?, ?, ?, 'Available')
-        ");
-
-        if ($stmt->execute([$name, $categoryId, $price, $description, $emoji, $imagePath])) {
+        try {
+            $pdo->beginTransaction();
+            $stmt = $pdo->prepare("
+                INSERT INTO product (product_name, category_id, price, default_variant_name, description, emoji, image_path, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'Available')
+            ");
+            $stmt->execute([$name, $categoryId, $price, $defaultVariantName, $description, $emoji, $imagePath]);
+            $productId = (int)$pdo->lastInsertId();
+            if ($variants) {
+                $variantStmt = $pdo->prepare("INSERT INTO product_variant (product_id, variant_name, price) VALUES (?, ?, ?)");
+                foreach ($variants as $variant) {
+                    $variantStmt->execute([$productId, $variant['name'], $variant['price']]);
+                }
+            }
+            $pdo->commit();
             $message = 'Product added successfully!';
             $messageType = 'success';
-        } else {
-            $message = 'Failed to add product';
+        } catch (Exception $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            error_log('Product creation failed: ' . $e->getMessage());
+            $message = 'Failed to save product and variants. Please try again.';
             $messageType = 'error';
         }
     }
@@ -135,7 +180,17 @@ if (isset($_GET['toggle_product'])) { $stmt = $pdo->prepare("UPDATE product SET 
 // LOAD DATA
 // ============================================
 $staffList = $pdo->query("SELECT * FROM staff ORDER BY created_at DESC")->fetchAll();
-$productList = $pdo->query("SELECT p.*, c.category_name FROM product p LEFT JOIN category c ON p.category_id = c.category_id ORDER BY c.category_name, p.product_name")->fetchAll();
+$productList = $pdo->query("
+    SELECT p.*, c.category_name
+    FROM product p
+    LEFT JOIN category c ON p.category_id = c.category_id
+    ORDER BY c.category_name, p.product_name
+")->fetchAll();
+$productVariants = $pdo->query("SELECT product_id, variant_name, price FROM product_variant ORDER BY variant_name")->fetchAll();
+$variantsByProduct = [];
+foreach ($productVariants as $variant) {
+    $variantsByProduct[$variant['product_id']][] = $variant;
+}
 $categories = $pdo->query("SELECT c.category_id, c.category_name, COUNT(p.product_id) AS product_count FROM category c LEFT JOIN product p ON p.category_id = c.category_id GROUP BY c.category_id, c.category_name ORDER BY c.category_name")->fetchAll();
 ?>
 <!DOCTYPE html>
@@ -151,6 +206,7 @@ $categories = $pdo->query("SELECT c.category_id, c.category_name, COUNT(p.produc
         
         .sidebar { position: fixed; left: 0; top: 0; width: 260px; height: 100vh; background: linear-gradient(180deg, #1a472a 0%, #0d2b18 100%); padding: 20px 0; z-index: 1000; overflow-y: auto; }
         .sidebar-brand { display: flex; align-items: center; padding: 0 25px 25px; color: white; font-size: 22px; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .sidebar-brand > .shop-logo-trigger { display: flex; align-items: center; color: inherit; text-decoration: none; }
         .sidebar-brand img { width: 48px; height: 48px; object-fit: contain; margin-right: 12px; flex-shrink: 0; }
         .sidebar-nav { padding: 15px 0; }
         .sidebar-nav a { display: flex; align-items: center; padding: 14px 25px; color: rgba(255,255,255,0.7); text-decoration: none; transition: all 0.3s; border-left: 3px solid transparent; font-size: 15px; }
@@ -178,6 +234,28 @@ $categories = $pdo->query("SELECT c.category_id, c.category_name, COUNT(p.produc
         .form-group label { display: block; color: #1a1a1a; font-weight: 600; margin-bottom: 8px; font-size: 14px; }
         .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 12px 16px; border: 2px solid #e8f0e8; border-radius: 10px; font-size: 15px; transition: all 0.3s; background: #f8faf8; font-family: inherit; }
         .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #1a472a; background: white; box-shadow: 0 0 0 4px rgba(26, 71, 42, 0.1); }
+        .variant-editor { margin: 18px 0; padding: 16px; border: 1px solid #e8f0e8; border-radius: 12px; background: #f8faf8; }
+        .variant-editor h3 { margin-bottom: 5px; color: #1a472a; font-size: 15px; }
+        .variant-help { margin-bottom: 12px; color: #6d776d; font-size: 12px; line-height: 1.5; }
+        .variant-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; margin-bottom: 10px; }
+        .variant-row .form-group { margin: 0; }
+        .variant-row label { font-size: 11px; }
+        .variant-row input { padding: 9px 10px; }
+        .variant-remove { width: 38px; height: 38px; border: 0; border-radius: 8px; background: #f8d7da; color: #a32830; cursor: pointer; }
+        .variant-add { padding: 9px 12px; border: 1px solid #1a472a; border-radius: 8px; color: #1a472a; background: white; font-weight: 700; cursor: pointer; }
+        .variant-summary { margin-top: 5px; color: #667166; font-size: 12px; }
+        .product-list-table { table-layout: fixed; min-width: 760px; }
+        .product-list-table th:nth-child(1), .product-list-table td:nth-child(1) { width: 23%; }
+        .product-list-table th:nth-child(2), .product-list-table td:nth-child(2) { width: 160px; max-width: 160px; }
+        .product-list-table th:nth-child(3), .product-list-table td:nth-child(3) { width: 16%; }
+        .product-list-table th:nth-child(4), .product-list-table td:nth-child(4) { width: 12%; }
+        .product-list-table th:nth-child(5), .product-list-table td:nth-child(5) { width: 12%; }
+        .product-list-table th:nth-child(6), .product-list-table td:nth-child(6) { width: 15%; }
+        .product-list-table td { overflow-wrap: anywhere; }
+        .product-option-list { display: grid; gap: 5px; min-width: 0; }
+        .product-option { min-width: 0; overflow-wrap: anywhere; word-break: break-word; line-height: 1.35; }
+        .product-option strong { font-weight: 600; }
+        .product-option small { white-space: nowrap; color: #667166; }
         
         .btn-submit { width: 100%; padding: 14px; background: linear-gradient(135deg, #1a472a 0%, #2d5a27 100%); color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; justify-content: center; gap: 10px; }
         .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(26, 71, 42, 0.3); }
@@ -220,8 +298,7 @@ $categories = $pdo->query("SELECT c.category_id, c.category_name, COUNT(p.produc
 <body>
     <div class="sidebar">
         <div class="sidebar-brand">
-            <img src="assets/logo.png" alt="Star Frappe logo">
-            <span>Star Frappe</span>
+            <a href="#shop-about" class="shop-logo-trigger" aria-label="About Star Frappe"><img src="assets/logo.png" alt="Star Frappe logo"><span>Star Frappe</span></a>
         </div>
         <nav class="sidebar-nav">
             <a href="dashboard.php" class="<?= $currentPage == 'dashboard.php' ? 'active' : '' ?>">
@@ -255,7 +332,9 @@ $categories = $pdo->query("SELECT c.category_id, c.category_name, COUNT(p.produc
                 <i class="fas fa-sign-out-alt"></i> <span>Logout</span>
             </a>
         </nav>
+        <?php require 'includes/shop_sidebar_account.php'; ?>
     </div>
+    <?php require 'includes/mobile_navigation.php'; ?>
 
     <div class="main-wrapper">
         <div class="header">
@@ -325,6 +404,13 @@ $categories = $pdo->query("SELECT c.category_id, c.category_name, COUNT(p.produc
                         <div class="form-group"><label>Product Name *</label><input type="text" name="product_name" placeholder="Enter product name" required></div>
                         <div class="form-group"><label>Category *</label><select name="category_id" required><option value="">-- Select category --</option><?php foreach ($categories as $c): ?><option value="<?= $c['category_id'] ?>"><?= htmlspecialchars($c['category_name']) ?></option><?php endforeach; ?></select></div>
                         <div class="form-group"><label>Price (₱) *</label><input type="number" name="price" placeholder="0.00" step="0.01" min="0" required></div>
+                        <div class="form-group"><label>Default option name (optional)</label><input type="text" name="default_variant_name" maxlength="80" placeholder="Leave blank to use Default"><small>For example: Regular or Medium. Blank uses “Default”.</small></div>
+                        <section class="variant-editor" aria-labelledby="variant-editor-title">
+                            <h3 id="variant-editor-title">Product variants (optional)</h3>
+                            <p class="variant-help">Add sizes or other options with their own price. The product’s price above belongs to the default option.</p>
+                            <div id="product-variant-rows"></div>
+                            <button type="button" class="variant-add" id="add-product-variant"><i class="fas fa-plus"></i> Add variant</button>
+                        </section>
                         
                         <div class="form-group">
                             <label>Product Image (Optional)</label>
@@ -375,8 +461,8 @@ $categories = $pdo->query("SELECT c.category_id, c.category_name, COUNT(p.produc
                     <?php if (empty($productList)): ?>
                         <p style="color: #999; text-align: center; padding: 40px;">No products yet</p>
                     <?php else: ?>
-                    <table class="data-table">
-                        <thead><tr><th>Product</th><th>Category</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead>
+                    <table class="data-table product-list-table">
+                        <thead><tr><th>Product</th><th>Options</th><th>Category</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead>
                         <tbody>
                             <?php foreach ($productList as $p): ?>
                             <tr>
@@ -387,6 +473,14 @@ $categories = $pdo->query("SELECT c.category_id, c.category_name, COUNT(p.produc
                                         <span style="font-size: 20px; margin-right: 8px;"><?= $p['emoji'] ?? '🍽️' ?></span>
                                     <?php endif; ?>
                                     <?= htmlspecialchars($p['product_name']) ?>
+                                </td>
+                                <td>
+                                    <div class="product-option-list">
+                                        <div class="product-option"><strong><?= htmlspecialchars($p['default_variant_name'] ?: 'Default') ?></strong> <small>₱<?= number_format($p['price'], 2) ?></small></div>
+                                        <?php foreach ($variantsByProduct[$p['product_id']] ?? [] as $variant): ?>
+                                            <div class="product-option"><strong><?= htmlspecialchars($variant['variant_name']) ?></strong> <small>₱<?= number_format($variant['price'], 2) ?></small></div>
+                                        <?php endforeach; ?>
+                                    </div>
                                 </td>
                                 <td><span class="badge <?= $p['category_name'] ?>"><?= htmlspecialchars($p['category_name']) ?></span></td>
                                 <td>₱<?= number_format($p['price'], 2) ?></td>
@@ -404,6 +498,28 @@ $categories = $pdo->query("SELECT c.category_id, c.category_name, COUNT(p.produc
             </div>
         </div>
         <script>
+            const variantRows = document.getElementById('product-variant-rows');
+            document.getElementById('add-product-variant').addEventListener('click', function () {
+                const row = document.createElement('div');
+                row.className = 'variant-row';
+                row.innerHTML = `
+                    <div class="form-group">
+                        <label>Variant name</label>
+                        <input type="text" name="variant_name[]" maxlength="80" placeholder="e.g., Large">
+                    </div>
+                    <div class="form-group">
+                        <label>Variant price (₱)</label>
+                        <input type="number" name="variant_price[]" min="0.01" step="0.01" placeholder="0.00">
+                    </div>
+                    <button type="button" class="variant-remove" aria-label="Remove variant"><i class="fas fa-trash"></i></button>
+                `;
+                row.querySelector('.variant-remove').addEventListener('click', function () {
+                    row.remove();
+                });
+                variantRows.appendChild(row);
+                row.querySelector('input').focus();
+            });
+
             function showTab(tab, btn) {
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                 document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -418,5 +534,6 @@ $categories = $pdo->query("SELECT c.category_id, c.category_name, COUNT(p.produc
             }
         </script>
     </div>
+<?php require 'includes/shop_about.php'; ?>
 </body>
 </html>

@@ -95,6 +95,14 @@ $transactionStmt->execute([$transactionFrom, $transactionTo]);
 $transactions = $transactionStmt->fetchAll();
 $totalItems = count($inventoryItems); $lowStockCount = 0; $outOfStockCount = 0;
 foreach ($inventoryItems as $item) { if ($item['status'] === 'Out of Stock') $outOfStockCount++; elseif ($item['status'] === 'Low Stock') $lowStockCount++; }
+$stockStatusFilter = $_GET['stock_status'] ?? 'all';
+if (!in_array($stockStatusFilter, ['all', 'In Stock', 'Low Stock', 'Out of Stock'], true)) {
+    http_response_code(400);
+    exit('Invalid inventory stock status filter');
+}
+$stockFilteredItems = array_values(array_filter($inventoryItems, static function ($item) use ($stockStatusFilter) {
+    return $stockStatusFilter === 'all' || $item['status'] === $stockStatusFilter;
+}));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -109,6 +117,7 @@ foreach ($inventoryItems as $item) { if ($item['status'] === 'Out of Stock') $ou
         
         .sidebar { position: fixed; left: 0; top: 0; width: 260px; height: 100vh; background: linear-gradient(180deg, #1a472a 0%, #0d2b18 100%); padding: 20px 0; z-index: 1000; overflow-y: auto; }
         .sidebar-brand { display: flex; align-items: center; padding: 0 25px 25px; color: white; font-size: 22px; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .sidebar-brand > .shop-logo-trigger { display: flex; align-items: center; color: inherit; text-decoration: none; }
         .sidebar-brand img { width: 48px; height: 48px; object-fit: contain; margin-right: 12px; flex-shrink: 0; }
         .sidebar-nav { padding: 15px 0; }
         .sidebar-nav a { display: flex; align-items: center; padding: 14px 25px; color: rgba(255,255,255,0.7); text-decoration: none; transition: all 0.3s; border-left: 3px solid transparent; font-size: 15px; }
@@ -178,7 +187,7 @@ foreach ($inventoryItems as $item) { if ($item['status'] === 'Out of Stock') $ou
         .empty-state { text-align: center; padding: 40px; color: #999; }
         .transaction-filter { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
         .transaction-filter label { display: flex; flex-direction: column; gap: 4px; color: #666; font-size: 11px; font-weight: 700; text-transform: uppercase; }
-        .transaction-filter input { padding: 8px 10px; border: 2px solid #e8f0e8; border-radius: 8px; }
+        .transaction-filter input, .transaction-filter select { padding: 8px 10px; border: 2px solid #e8f0e8; border-radius: 8px; background: white; }
         .transaction-filter button, .transaction-filter a { padding: 9px 13px; border: 0; border-radius: 8px; background: #1a472a; color: white; cursor: pointer; font-weight: 600; text-decoration: none; }
         
         @media (max-width: 992px) { 
@@ -194,8 +203,7 @@ foreach ($inventoryItems as $item) { if ($item['status'] === 'Out of Stock') $ou
 <body>
     <div class="sidebar">
         <div class="sidebar-brand">
-            <img src="assets/logo.png" alt="Star Frappe logo">
-            <span>Star Frappe</span>
+            <a href="#shop-about" class="shop-logo-trigger" aria-label="About Star Frappe"><img src="assets/logo.png" alt="Star Frappe logo"><span>Star Frappe</span></a>
         </div>
         <nav class="sidebar-nav">
             <a href="dashboard.php" class="<?= $currentPage == 'dashboard.php' ? 'active' : '' ?>"><i class="fas fa-chart-pie"></i> <span>Dashboard</span></a>
@@ -208,7 +216,9 @@ foreach ($inventoryItems as $item) { if ($item['status'] === 'Out of Stock') $ou
             
             <a href="logout.php" class="logout-link"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a>
         </nav>
+        <?php require 'includes/shop_sidebar_account.php'; ?>
     </div>
+    <?php require 'includes/mobile_navigation.php'; ?>
 
     <div class="main-wrapper">
         <div class="header">
@@ -248,12 +258,24 @@ foreach ($inventoryItems as $item) { if ($item['status'] === 'Out of Stock') $ou
                 <?php endif; ?>
                 <div class="card" style="<?= !isAdmin() ? 'grid-column: 1 / -1;' : '' ?>">
                     <h2><i class="fas fa-list"></i> Stock Levels</h2>
-                    <?php if (empty($inventoryItems)): ?><div class="empty-state"><p>No inventory items yet.</p></div>
+                    <form method="GET" class="transaction-filter" style="margin-bottom: 16px;">
+                        <label for="stock-status-filter">Filter stock status
+                            <select id="stock-status-filter" name="stock_status">
+                                <option value="all" <?= $stockStatusFilter === 'all' ? 'selected' : '' ?>>All stock</option>
+                                <option value="In Stock" <?= $stockStatusFilter === 'In Stock' ? 'selected' : '' ?>>In stock</option>
+                                <option value="Low Stock" <?= $stockStatusFilter === 'Low Stock' ? 'selected' : '' ?>>Low stock</option>
+                                <option value="Out of Stock" <?= $stockStatusFilter === 'Out of Stock' ? 'selected' : '' ?>>Out of stock</option>
+                            </select>
+                        </label>
+                        <button type="submit">Apply</button>
+                        <a href="inventory.php">Reset</a>
+                    </form>
+                    <?php if (empty($stockFilteredItems)): ?><div class="empty-state"><p><?= empty($inventoryItems) ? 'No inventory items yet.' : 'No items match this stock status.' ?></p></div>
                     <?php else: ?>
                     <table class="data-table">
                         <thead><tr><th>Item</th><th>Stock</th><th>Status</th><th>Adjust</th><?php if (isAdmin()): ?><th></th><?php endif; ?></tr></thead>
                         <tbody>
-                            <?php foreach ($inventoryItems as $item): ?>
+                            <?php foreach ($stockFilteredItems as $item): ?>
                             <tr>
                                 <td><strong><?= htmlspecialchars($item['item_name']) ?></strong></td>
                                 <td><strong><?= number_format($item['current_stock'], 2) ?></strong> <span style="color: #999; font-size: 12px;"><?= htmlspecialchars($item['unit']) ?></span><div style="font-size: 11px; color: #999;">Min: <?= number_format($item['reorder_level'], 2) ?></div></td>
@@ -357,5 +379,6 @@ foreach ($inventoryItems as $item) { if ($item['status'] === 'Out of Stock') $ou
             }
         </script>
     </div>
+<?php require 'includes/shop_about.php'; ?>
 </body>
 </html>

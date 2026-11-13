@@ -14,7 +14,7 @@ requireLogin();
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #0d2b18 0%, #1a472a 100%);
+            background: #edf2ed;
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -26,16 +26,33 @@ requireLogin();
             background: white;
             border-radius: 25px;
             box-shadow: 0 25px 80px rgba(0,0,0,0.3);
-            width: 1000px;
+            width: 1080px;
             max-width: 100%;
             overflow: hidden;
-            display: flex;
+            display: grid;
+            grid-template-columns: .9fr 1.1fr;
         }
+
+        .checkout-header {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            padding: 20px 34px;
+            border-bottom: 1px solid #e8eee8;
+        }
+
+        .checkout-brand { display: flex; align-items: center; gap: 12px; color: #1a472a; }
+        .checkout-brand img { width: 52px; height: 52px; object-fit: contain; }
+        .checkout-brand strong { display: block; font-size: 17px; }
+        .checkout-brand .brand-caption { display: block; margin-top: 4px; color: #758075; font-size: 12px; }
+        .checkout-step { color: #657065; font-size: 13px; font-weight: 600; }
         
         .order-summary {
-            width: 45%;
+            width: auto;
             background: #f8faf8;
-            padding: 40px;
+            padding: 36px;
         }
         
         .order-summary h2 {
@@ -87,10 +104,12 @@ requireLogin();
         }
         
         .order-total .amount { color: #1a472a; }
+        .order-breakdown { display: flex; justify-content: space-between; margin: 8px 0; color: #687268; font-size: 14px; }
+        .order-breakdown.discount { color: #1a472a; }
         
         .payment-section {
-            width: 55%;
-            padding: 40px;
+            width: auto;
+            padding: 36px;
         }
         
         .payment-section h2 {
@@ -106,7 +125,7 @@ requireLogin();
         
         .payment-methods {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 15px;
             margin-bottom: 30px;
         }
@@ -119,6 +138,7 @@ requireLogin();
             text-align: center;
             transition: all 0.3s;
             background: white;
+            font: inherit;
         }
         
         .payment-method:hover { border-color: #1a472a; }
@@ -140,6 +160,13 @@ requireLogin();
             color: #1a1a1a;
             font-size: 14px;
         }
+        .payment-method { color: inherit; }
+        .wallet-provider { display: none; margin: -12px 0 24px; }
+        .wallet-provider.is-visible { display: block; }
+        .wallet-provider label { display: block; margin-bottom: 8px; color: #1a1a1a; font-weight: 600; }
+        .wallet-provider select { width: 100%; padding: 13px 15px; border: 2px solid #e8f0e8; border-radius: 10px; background: white; font: inherit; }
+
+        .payment-method:focus-visible { outline: 3px solid #ffd700; outline-offset: 2px; }
         
         .input-group { margin-bottom: 25px; }
         
@@ -166,6 +193,11 @@ requireLogin();
             background: white;
             box-shadow: 0 0 0 4px rgba(26, 71, 42, 0.1);
         }
+
+        .input-hint { display: block; margin-top: 7px; color: #778177; font-size: 12px; }
+        .checkout-status { display: none; margin-bottom: 16px; padding: 12px 14px; border-radius: 9px; font-size: 13px; }
+        .checkout-status.is-visible { display: block; }
+        .checkout-status.is-error { color: #8d242c; background: #fce8e9; }
         
         .change-display {
             display: flex;
@@ -188,8 +220,8 @@ requireLogin();
         .btn-cancel {
             flex: 1;
             padding: 18px;
-            background: #f8d7da;
-            color: #dc3545;
+            background: #edf1ed;
+            color: #495449;
             border: none;
             border-radius: 12px;
             font-size: 16px;
@@ -203,14 +235,13 @@ requireLogin();
         }
         
         .btn-cancel:hover {
-            background: #dc3545;
-            color: white;
+            background: #dfe6df;
         }
         
         .btn-confirm {
             flex: 2;
             padding: 18px;
-            background: linear-gradient(135deg, #1a472a 0%, #2d5a27 100%);
+            background: #1a472a;
             color: white;
             border: none;
             border-radius: 12px;
@@ -225,8 +256,7 @@ requireLogin();
         }
         
         .btn-confirm:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(26, 71, 42, 0.3);
+            background: #2d5a27;
         }
         
         .btn-confirm:disabled {
@@ -235,6 +265,7 @@ requireLogin();
             transform: none;
             box-shadow: none;
         }
+        .btn-confirm:disabled:hover { background: #ccc; }
         
         /* Confirmation Modal */
         .modal-overlay {
@@ -305,64 +336,94 @@ requireLogin();
             transition: all 0.3s;
         }
         
-        .btn-no { background: #f8d7da; color: #dc3545; }
-        .btn-no:hover { background: #dc3545; color: white; }
+        .btn-no { background: #edf1ed; color: #495449; }
+        .btn-no:hover { background: #dfe6df; }
         
         .btn-yes { background: #1a472a; color: white; }
         .btn-yes:hover { background: #2d5a27; }
         
         @media (max-width: 768px) {
-            .payment-container { flex-direction: column; }
-            .order-summary, .payment-section { width: 100%; }
+            .payment-container { grid-template-columns: 1fr; }
+            .checkout-header { padding: 20px; }
+            .order-summary, .payment-section { padding: 26px; }
+        }
+
+        @media (max-width: 480px) {
             .payment-methods { grid-template-columns: 1fr; }
+            .action-buttons { flex-direction: column-reverse; }
+            .checkout-step { display: none; }
         }
     </style>
 </head>
 <body>
     <div class="payment-container">
+        <header class="checkout-header">
+            <a href="#shop-about" class="checkout-brand shop-logo-trigger" aria-label="About Star Frappe">
+                <img src="assets/logo.png" alt="Star Frappe logo">
+                <span><strong>Star Frappe</strong><span class="brand-caption">Secure checkout</span></span>
+            </a>
+            <span class="checkout-step">Step 2 of 2 · Confirm payment</span>
+        </header>
         <div class="order-summary">
-            <h2><i class="fas fa-receipt"></i> Order Summary</h2>
+            <h2><i class="fas fa-receipt"></i> Review Your Order</h2>
+            <p style="margin: -12px 0 20px; color: #707a70; font-size: 13px;"><span id="order-item-count">0</span> items</p>
             <div class="order-items" id="order-items"></div>
+            <div class="order-breakdown"><span>Subtotal</span><span id="order-subtotal">₱0.00</span></div>
+            <div class="order-breakdown discount"><span>Discount</span><span id="order-discount">−₱0.00</span></div>
             <div class="order-total">
-                <span>Total:</span>
+                <span>Amount due</span>
                 <span class="amount" id="order-total">₱0.00</span>
             </div>
         </div>
         
         <div class="payment-section">
-            <h2><i class="fas fa-credit-card"></i> Payment Method</h2>
+            <h2><i class="fas fa-credit-card"></i> Choose Payment Method</h2>
             
             <div class="payment-methods">
-                <div class="payment-method active" onclick="selectPayment('Cash', this)">
+                <button type="button" class="payment-method active" aria-pressed="true" onclick="selectPayment('Cash', this)">
                     <i class="fas fa-money-bill-wave"></i>
                     <span>Cash</span>
-                </div>
-                <div class="payment-method" onclick="selectPayment('GCash', this)">
-                    <i class="fas fa-mobile-alt"></i>
-                    <span>GCash</span>
-                </div>
-                <div class="payment-method" onclick="selectPayment('Card', this)">
+                </button>
+                <button type="button" class="payment-method" aria-pressed="false" onclick="selectPayment('E-Wallet', this)">
+                    <i class="fas fa-wallet"></i>
+                    <span>E-Wallet</span>
+                </button>
+                <button type="button" class="payment-method" aria-pressed="false" onclick="selectPayment('Card', this)">
                     <i class="fas fa-credit-card"></i>
                     <span>Card</span>
-                </div>
+                </button>
+            </div>
+
+            <div class="wallet-provider" id="wallet-provider">
+                <label for="wallet-name">E-wallet provider</label>
+                <select id="wallet-name">
+                    <option value="GCash">GCash</option>
+                    <option value="Maya">Maya</option>
+                    <option value="MariBank">MariBank</option>
+                    <option value="Other E-Wallet">Other</option>
+                </select>
+                <span class="input-hint">Verify the payment in the provider app before confirming.</span>
             </div>
             
             <div class="input-group" id="tendered-group">
-                <label>Amount Tendered:</label>
-                <input type="number" id="amount-tendered" placeholder="Enter amount" step="0.01" min="0" oninput="calculateChange()">
+                <label for="amount-tendered">Cash received</label>
+                <input type="number" id="amount-tendered" placeholder="Enter amount received" step="0.01" min="0" oninput="calculateChange()">
+                <span class="input-hint">Enter the amount given by the customer.</span>
             </div>
             
             <div class="change-display">
-                <span>Change:</span>
+                <span>Change due</span>
                 <span class="amount" id="change-amount">₱0.00</span>
             </div>
+
+            <div class="checkout-status" id="checkout-status" role="status" aria-live="polite"></div>
             
             <div class="action-buttons">
                 <button class="btn-cancel" onclick="goBack()">
-                    <i class="fas fa-arrow-left"></i> Back
+                    <i class="fas fa-arrow-left"></i> Back to Order
                 </button>
                 <button class="btn-confirm" id="btn-confirm" onclick="showConfirmation()">
-                    <i class="fas fa-check"></i> Complete Payment
+                    Complete Sale
                 </button>
             </div>
         </div>
@@ -371,59 +432,84 @@ requireLogin();
     <!-- Confirmation Modal -->
     <div class="modal-overlay" id="confirm-modal">
         <div class="confirm-modal">
-            <i class="fas fa-question-circle"></i>
-            <h3>Confirm Payment</h3>
-            <p>Is the amount received correct?</p>
+            <i class="fas fa-circle-check"></i>
+            <h3>Review Payment</h3>
+            <p id="confirm-message">Confirm the amount received before completing this sale.</p>
             <div class="amount-received" id="confirm-amount">₱0.00</div>
             <div class="modal-buttons">
                 <button class="btn-no" onclick="closeConfirmation()">
-                    <i class="fas fa-times"></i> No, Go Back
+                    Go Back
                 </button>
                 <button class="btn-yes" onclick="confirmPayment()">
-                    <i class="fas fa-check"></i> Yes, Proceed
+                    Confirm Payment
                 </button>
             </div>
         </div>
     </div>
     
+    <?php require 'includes/shop_about.php'; ?>
     <script>
         let cart = [];
         let total = 0;
         let paymentMethod = 'Cash';
+        let walletProvider = 'GCash';
         let amountTendered = 0;
+        let discountAmount = 0;
         let isProcessing = false;
         
         function loadOrder() {
             cart = JSON.parse(sessionStorage.getItem('cart') || '[]');
+            discountAmount = Number(sessionStorage.getItem('discount_amount') || 0);
             
             if (cart.length === 0) {
-                alert('No items in cart!');
                 window.location.href = 'pos.php';
                 return;
             }
             
-            total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            const subtotal = cart.reduce((sum, item) => sum + (Number(item.price) * Number(item.qty)), 0);
+            if (!Number.isFinite(discountAmount) || discountAmount < 0 || discountAmount > subtotal) {
+                discountAmount = 0;
+            }
+            total = subtotal - discountAmount;
+            document.getElementById('order-item-count').textContent = cart.reduce((sum, item) => sum + item.qty, 0);
             
             document.getElementById('order-items').innerHTML = cart.map(item => `
                 <div class="order-item">
                     <div>
-                        <div class="name">${item.name}</div>
+                        <div class="name">${escapeHtml(item.name)}${item.variant_name ? ' - ' + escapeHtml(item.variant_name) : ''}</div>
                         <div class="qty">x${item.qty} @ ₱${item.price.toFixed(2)}</div>
                     </div>
                     <div class="subtotal">₱${(item.price * item.qty).toFixed(2)}</div>
                 </div>
             `).join('');
             
+            document.getElementById('order-subtotal').textContent = '₱' + subtotal.toFixed(2);
+            document.getElementById('order-discount').textContent = '−₱' + discountAmount.toFixed(2);
             document.getElementById('order-total').textContent = '₱' + total.toFixed(2);
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, character => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            })[character]);
         }
         
         function selectPayment(method, el) {
             paymentMethod = method;
-            document.querySelectorAll('.payment-method').forEach(m => m.classList.remove('active'));
+            document.querySelectorAll('.payment-method').forEach(m => {
+                m.classList.remove('active');
+                m.setAttribute('aria-pressed', 'false');
+            });
             el.classList.add('active');
+            el.setAttribute('aria-pressed', 'true');
             
-            document.getElementById('tendered-group').style.display = 
+            document.getElementById('tendered-group').style.display =
                 method === 'Cash' ? 'block' : 'none';
+            document.getElementById('wallet-provider').classList.toggle('is-visible', method === 'E-Wallet');
             
             if (method !== 'Cash') {
                 document.getElementById('amount-tendered').value = total.toFixed(2);
@@ -435,7 +521,9 @@ requireLogin();
         }
         
         function calculateChange() {
-            amountTendered = parseFloat(document.getElementById('amount-tendered').value) || 0;
+            amountTendered = paymentMethod === 'Cash'
+                ? (parseFloat(document.getElementById('amount-tendered').value) || 0)
+                : total;
             const change = amountTendered - total;
             
             document.getElementById('change-amount').textContent = 
@@ -443,25 +531,25 @@ requireLogin();
         }
         
         function showConfirmation() {
-            amountTendered = parseFloat(document.getElementById('amount-tendered').value) || 0;
+            amountTendered = paymentMethod === 'Cash'
+                ? (parseFloat(document.getElementById('amount-tendered').value) || 0)
+                : total;
+            const status = document.getElementById('checkout-status');
+            status.className = 'checkout-status';
+            status.textContent = '';
             
             if (amountTendered < total) {
-                alert('Amount tendered is less than the total!');
+                status.textContent = 'The amount received must be at least the amount due.';
+                status.classList.add('is-visible', 'is-error');
                 return;
             }
             
-            // For GCash / Card, show "Did customer pay?" question first
-            if (paymentMethod === 'GCash' || paymentMethod === 'Card') {
-                const paid = confirm(
-                    'PAYMENT CONFIRMATION\n\n' +
-                    'Method: ' + paymentMethod + '\n' +
-                    'Amount: ₱' + amountTendered.toFixed(2) + '\n\n' +
-                    'Has the customer paid? Click OK to confirm, Cancel to go back.'
-                );
-                if (!paid) return;
-            }
-            
             document.getElementById('confirm-amount').textContent = '₱' + amountTendered.toFixed(2);
+            walletProvider = document.getElementById('wallet-name').value;
+            const paymentLabel = paymentMethod === 'E-Wallet' ? paymentMethod + ' (' + walletProvider + ')' : paymentMethod;
+            document.getElementById('confirm-message').textContent = paymentMethod === 'Cash'
+                ? 'Confirm the cash received before completing this sale.'
+                : 'Confirm that the customer paid by ' + paymentLabel + ' before completing this sale.';
             document.getElementById('confirm-modal').classList.add('show');
         }
         
@@ -478,9 +566,10 @@ requireLogin();
             const orderData = {
                 items: cart,
                 total: total,
-                payment_method: paymentMethod,
+                payment_method: paymentMethod === 'E-Wallet' ? 'E-Wallet (' + walletProvider + ')' : paymentMethod,
                 amount_tendered: amountTendered,
-                change_amount: change
+                change_amount: change,
+                discount_amount: discountAmount
             };
             
             try {
@@ -497,12 +586,18 @@ requireLogin();
                     sessionStorage.setItem('last_receipt_number', data.receipt_number);
                     window.location.href = 'receipt.php?id=' + data.sale_id;
                 } else {
-                    alert('Error: ' + (data.error || 'Failed to process order'));
+                    closeConfirmation();
+                    const status = document.getElementById('checkout-status');
+                    status.textContent = data.error || 'The sale could not be completed. Please try again.';
+                    status.classList.add('is-visible', 'is-error');
                     isProcessing = false;
                 }
             } catch (e) {
                 console.error('Error:', e);
-                alert('Failed to process order. Please try again.');
+                closeConfirmation();
+                const status = document.getElementById('checkout-status');
+                status.textContent = 'Unable to reach the server. Check your connection and try again.';
+                status.classList.add('is-visible', 'is-error');
                 isProcessing = false;
             }
         }

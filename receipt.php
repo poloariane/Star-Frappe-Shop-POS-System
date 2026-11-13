@@ -13,9 +13,16 @@ if ($showSingle) {
     $stmt->execute([$saleId]);
     $sale = $stmt->fetch();
     if ($sale) {
-        $stmt = $pdo->prepare("SELECT si.quantity, si.unit_price, si.subtotal, p.product_name, p.emoji FROM sale_item si JOIN product p ON si.product_id = p.product_id WHERE si.sale_id = ?");
+        $stmt = $pdo->prepare("SELECT si.quantity, si.unit_price, si.subtotal, si.variant_name, p.product_name, p.emoji FROM sale_item si JOIN product p ON si.product_id = p.product_id WHERE si.sale_id = ?");
         $stmt->execute([$saleId]);
         $items = $stmt->fetchAll();
+        $receiptSubtotal = 0;
+        $receiptItemTotal = 0;
+        foreach ($items as $item) {
+            $receiptSubtotal += (float)$item['unit_price'] * (int)$item['quantity'];
+            $receiptItemTotal += (float)$item['subtotal'];
+        }
+        $receiptDiscount = max(0, $receiptSubtotal - $receiptItemTotal);
         $stmt = $pdo->prepare("SELECT * FROM payment WHERE sale_id = ?"); $stmt->execute([$saleId]); $payment = $stmt->fetch();
         $stmt = $pdo->prepare("SELECT * FROM receipt WHERE sale_id = ?"); $stmt->execute([$saleId]); $receipt = $stmt->fetch();
     }
@@ -54,6 +61,7 @@ foreach ($allSales as $s) { if ($s['status'] === 'Void') $voidCount++; else $com
         
         .sidebar { position: fixed; left: 0; top: 0; width: 260px; height: 100vh; background: linear-gradient(180deg, #1a472a 0%, #0d2b18 100%); padding: 20px 0; z-index: 1000; overflow-y: auto; }
         .sidebar-brand { display: flex; align-items: center; padding: 0 25px 25px; color: white; font-size: 22px; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .sidebar-brand > .shop-logo-trigger { display: flex; align-items: center; color: inherit; text-decoration: none; }
         .sidebar-brand img { width: 48px; height: 48px; object-fit: contain; margin-right: 12px; flex-shrink: 0; }
         .sidebar-nav { padding: 15px 0; }
         .sidebar-nav a { display: flex; align-items: center; padding: 14px 25px; color: rgba(255,255,255,0.7); text-decoration: none; transition: all 0.3s; border-left: 3px solid transparent; font-size: 15px; }
@@ -155,8 +163,7 @@ foreach ($allSales as $s) { if ($s['status'] === 'Void') $voidCount++; else $com
 <body>
     <div class="sidebar">
         <div class="sidebar-brand">
-            <img src="assets/logo.png" alt="Star Frappe logo">
-            <span>Star Frappe</span>
+            <a href="#shop-about" class="shop-logo-trigger" aria-label="About Star Frappe"><img src="assets/logo.png" alt="Star Frappe logo"><span>Star Frappe</span></a>
         </div>
         <nav class="sidebar-nav">
             <a href="dashboard.php" class="<?= $currentPage == 'dashboard.php' ? 'active' : '' ?>"><i class="fas fa-chart-pie"></i> <span>Dashboard</span></a>
@@ -169,7 +176,9 @@ foreach ($allSales as $s) { if ($s['status'] === 'Void') $voidCount++; else $com
             
             <a href="logout.php" class="logout-link"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a>
         </nav>
+        <?php require 'includes/shop_sidebar_account.php'; ?>
     </div>
+    <?php require 'includes/mobile_navigation.php'; ?>
 
     <div class="main-wrapper">
         <div class="header">
@@ -194,12 +203,16 @@ foreach ($allSales as $s) { if ($s['status'] === 'Void') $voidCount++; else $com
             <div class="receipt-items">
                 <?php foreach ($items as $item): ?>
                 <div class="receipt-item">
-                    <div><div class="name"><?= htmlspecialchars($item['product_name']) ?></div><div style="font-size: 12px; color: #999;">x<?= $item['quantity'] ?> @ ₱<?= number_format($item['unit_price'], 2) ?></div></div>
+                    <div><div class="name"><?= htmlspecialchars($item['product_name']) ?><?= !empty($item['variant_name']) ? ' - ' . htmlspecialchars($item['variant_name']) : '' ?></div><div style="font-size: 12px; color: #999;">x<?= $item['quantity'] ?> @ ₱<?= number_format($item['unit_price'], 2) ?></div></div>
                     <span class="price">₱<?= number_format($item['subtotal'], 2) ?></span>
                 </div>
                 <?php endforeach; ?>
             </div>
             <div class="receipt-divider"></div>
+            <div class="receipt-payment">
+                <div><span>Subtotal</span><span>₱<?= number_format($receiptSubtotal, 2) ?></span></div>
+                <?php if ($receiptDiscount > 0): ?><div><span>Discount</span><span>−₱<?= number_format($receiptDiscount, 2) ?></span></div><?php endif; ?>
+            </div>
             <div class="receipt-total"><span>TOTAL:</span><span class="amount">₱<?= number_format($sale['total_amount'], 2) ?></span></div>
             <div class="receipt-payment">
                 <div><span>Amount Tendered:</span><span>₱<?= number_format($payment['amount_received'] ?? 0, 2) ?></span></div>
@@ -283,5 +296,6 @@ foreach ($allSales as $s) { if ($s['status'] === 'Void') $voidCount++; else $com
         </div>
         <?php endif; ?>
     </div>
+<?php require 'includes/shop_about.php'; ?>
 </body>
 </html>

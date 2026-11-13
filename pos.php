@@ -25,6 +25,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         ========================================= */
         .sidebar { position: fixed; left: 0; top: 0; width: 260px; height: 100vh; background: linear-gradient(180deg, #1a472a 0%, #0d2b18 100%); padding: 20px 0; z-index: 1000; overflow-y: auto; }
         .sidebar-brand { display: flex; align-items: center; padding: 0 25px 25px; color: white; font-size: 22px; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .sidebar-brand-link { display: flex; align-items: center; color: inherit; text-decoration: none; }
         .sidebar-brand img { width: 48px; height: 48px; object-fit: contain; margin-right: 12px; flex-shrink: 0; }
         .sidebar-nav { padding: 15px 0; }
         .sidebar-nav a { display: flex; align-items: center; padding: 14px 25px; color: rgba(255,255,255,0.7); text-decoration: none; transition: all 0.3s; border-left: 3px solid transparent; font-size: 15px; }
@@ -73,6 +74,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             height: 42px;
             object-fit: contain;
         }
+        .pos-title-link { display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
         
         .category-tabs {
             display: flex;
@@ -113,6 +115,9 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             transition: all 0.3s;
             border: 2px solid transparent;
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            font: inherit;
+            color: inherit;
+            width: 100%;
         }
         
         .product-card:hover {
@@ -121,10 +126,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             box-shadow: 0 10px 30px rgba(26, 71, 42, 0.15);
         }
         
-        .product-card .emoji {
-            font-size: 48px;
-            margin-bottom: 10px;
-        }
+        .product-placeholder { display: grid; place-items: center; width: 80px; height: 80px; margin: 0 auto 10px; border-radius: 12px; background: #edf3ed; color: #1a472a; font-size: 34px; }
         
         .product-card h4 {
             color: #1a1a1a;
@@ -137,6 +139,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             font-weight: 700;
             font-size: 18px;
         }
+        .product-card .variant-label { margin: 0 0 5px; color: #687268; font-size: 13px; }
         
         /* Right - Cart */
         .cart-section {
@@ -153,7 +156,19 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             background: linear-gradient(135deg, #1a472a 0%, #2d5a27 100%);
             color: white;
         }
-        
+
+        .cart-header-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+        .btn-clear {
+            padding: 8px 10px;
+            border: 1px solid rgba(255,255,255,.55);
+            border-radius: 8px;
+            color: white;
+            background: rgba(255,255,255,.12);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-clear:hover { background: rgba(255,255,255,.22); }
         .cart-header h2 {
             font-size: 20px;
             display: flex;
@@ -171,6 +186,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 8px;
             padding: 15px;
             background: #f8faf8;
             border-radius: 12px;
@@ -194,6 +210,20 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             align-items: center;
             gap: 10px;
         }
+        .cart-item-main { flex: 1; min-width: 0; }
+        .cart-item-info { min-width: 0; }
+        .cart-item-info h4 { overflow-wrap: anywhere; }
+        .remove-item {
+            width: 30px;
+            height: 30px;
+            flex: 0 0 30px;
+            border: 0;
+            border-radius: 8px;
+            color: #a32830;
+            background: #f8d7da;
+            cursor: pointer;
+        }
+        .remove-item:hover { color: white; background: #dc3545; }
         
         .qty-btn {
             width: 30px;
@@ -233,6 +263,14 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             border-top: 1px solid #f0f0f0;
             background: white;
         }
+
+        .discount-field { margin-bottom: 14px; }
+        .discount-field label { display: block; margin-bottom: 6px; color: #4b554b; font-size: 12px; font-weight: 700; }
+        .discount-field input { width: 100%; padding: 10px 12px; border: 1px solid #dfe7df; border-radius: 8px; font: inherit; }
+        .discount-field input:focus { outline: 2px solid rgba(26,71,42,.22); border-color: #1a472a; }
+        .discount-status { color: #a32830; font-size: 11px; }
+        .cart-subtotal, .cart-discount { display: flex; justify-content: space-between; margin-bottom: 8px; color: #626c62; font-size: 13px; }
+        .cart-discount { color: #1a472a; }
         
         .cart-total {
             display: flex;
@@ -275,29 +313,10 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             cursor: not-allowed;
         }
         
-        .btn-clear {
-            width: 100%;
-            padding: 12px;
-            background: #f8d7da;
-            color: #dc3545;
-            border: none;
-            border-radius: 12px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-top: 10px;
-        }
-        
-        .btn-clear:hover {
-            background: #dc3545;
-            color: white;
-        }
-
         /* Responsive */
         @media (max-width: 992px) {
             .sidebar { width: 70px; }
-            .sidebar-brand span, .sidebar-nav a span { display: none; }
+            .sidebar-brand-link span, .sidebar-nav a span { display: none; }
             .sidebar-nav a i { margin-right: 0; font-size: 22px; }
             .pos-container { margin-left: 70px; }
         }
@@ -312,10 +331,9 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 <body>
     <!-- SIDEBAR NAVIGATION -->
     <div class="sidebar">
-        <div class="sidebar-brand">
-            <img src="assets/logo.png" alt="Star Frappe logo">
-            <span>Star Frappe</span>
-        </div>
+    <div class="sidebar-brand">
+        <a href="#shop-about" class="shop-logo-trigger sidebar-brand-link" aria-label="About Star Frappe"><img src="assets/logo.png" alt="Star Frappe logo"><span>Star Frappe</span></a>
+    </div>
         <nav class="sidebar-nav">
             <a href="dashboard.php" class="<?= $currentPage == 'dashboard.php' ? 'active' : '' ?>">
                 <i class="fas fa-chart-pie"></i> <span>Dashboard</span>
@@ -346,14 +364,16 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <i class="fas fa-sign-out-alt"></i> <span>Logout</span>
             </a>
         </nav>
+        <?php require 'includes/shop_sidebar_account.php'; ?>
     </div>
+    <?php require 'includes/mobile_navigation.php'; ?>
 
     <!-- POS LAYOUT (Naka-move sa kanan dahil sa margin-left) -->
     <div class="pos-container">
         <!-- Menu Section -->
         <div class="menu-section">
             <div class="pos-header">
-                <h1><img src="assets/logo.png" alt="Star Frappe logo" class="brand-logo"> Star Frappe Shop POS</h1>
+                <h1><a href="#shop-about" class="shop-logo-trigger pos-title-link" aria-label="About Star Frappe"><img src="assets/logo.png" alt="Star Frappe logo" class="brand-logo"><span>Star Frappe Shop POS</span></a></h1>
                 
                 <div style="text-align: right;">
                     <div style="color: #1a472a; font-weight: 700; font-size: 15px; margin-bottom: 4px;">
@@ -377,43 +397,57 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         <!-- Cart Section -->
         <div class="cart-section">
             <div class="cart-header">
-                <h2><i class="fas fa-shopping-cart"></i> Current Order</h2>
+                <div class="cart-header-row">
+                    <h2><i class="fas fa-basket-shopping"></i> Order Summary</h2>
+                    <button class="btn-clear" type="button" onclick="clearCart()"><i class="fas fa-trash"></i> Remove all</button>
+                </div>
+                <p style="margin-top: 6px; color: rgba(255,255,255,.8); font-size: 13px;">Review items and quantities before payment.</p>
             </div>
             
             <div class="cart-items" id="cart-items">
                 <div class="empty-cart">
-                    <i class="fas fa-cart-plus"></i>
-                    <p>No items added yet</p>
-                    <p style="font-size: 13px; margin-top: 5px;">Click products to add</p>
+                    <i class="fas fa-basket-shopping"></i>
+                    <p>Your order is empty</p>
+                    <p style="font-size: 13px; margin-top: 5px;">Select products to begin.</p>
                 </div>
             </div>
             
             <div class="cart-footer">
+                <div class="discount-field">
+                    <label for="discount-amount">Discount amount (₱)</label>
+                    <input type="number" id="discount-amount" min="0" step="0.01" value="0" placeholder="0.00">
+                    <div class="discount-status" id="discount-status" role="status" aria-live="polite"></div>
+                </div>
+                <div class="cart-subtotal"><span>Subtotal</span><span id="cart-subtotal">₱0.00</span></div>
+                <div class="cart-discount"><span>Discount</span><span id="cart-discount">−₱0.00</span></div>
                 <div class="cart-total">
-                    <span>Total:</span>
+                    <span>Amount due</span>
                     <span class="amount" id="cart-total">₱0.00</span>
                 </div>
                 <button class="btn-done" id="btn-done" onclick="proceedToPayment()" disabled>
-                    <i class="fas fa-check"></i>
-                    Done - Proceed to Payment
-                </button>
-                <button class="btn-clear" onclick="clearCart()">
-                    <i class="fas fa-trash"></i> Clear Cart
+                    Continue to Payment
                 </button>
             </div>
         </div>
     </div>
     
+    <?php require 'includes/shop_about.php'; ?>
     <script>
         let products = [];
         let categories = new Set();
         let cart = [];
         let currentCategory = 'all';
+        let discountAmount = 0;
         
         async function loadProducts() {
             try {
                 const res = await fetch('api/products.php?action=list');
                 products = await res.json();
+                products = products.map(product => ({
+                    ...product,
+                    id: Number(product.id),
+                    variant_id: product.variant_id === null ? null : Number(product.variant_id)
+                }));
                 
                 // Build unique categories for tabs
                 const tabs = document.getElementById('category-tabs');
@@ -424,7 +458,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     if (cat) {
                         const btn = document.createElement('button');
                         btn.className = 'category-tab';
-                        btn.textContent = cat + 's';
+                        btn.textContent = cat;
                         btn.onclick = function() { filterCategory(cat, this); };
                         tabs.appendChild(btn);
                     }
@@ -445,23 +479,38 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 return;
             }
             
-            grid.innerHTML = items.map(p => {
-                // Logic para malaman kung may image o wala
-                let displayIcon = '';
-                if (p.image_path) {
-                    displayIcon = `<img src="${p.image_path}" alt="${p.name}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 10px; margin-bottom: 10px;">`;
-                } else {
-                    displayIcon = `<div class="emoji">${p.emoji || '🍽️'}</div>`;
-                }
-
+            grid.innerHTML = items.map((p, index) => {
+                const displayIcon = p.image_path
+                    ? `<img src="${escapeHtml(p.image_path)}" alt="${escapeHtml(p.name)}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 10px; margin-bottom: 10px;">`
+                    : '<div class="product-placeholder"><i class="fas fa-mug-hot" aria-hidden="true"></i></div>';
+                const variantLabel = p.variant_name
+                    ? `<p class="variant-label">${escapeHtml(p.variant_name)}</p>`
+                    : '';
                 return `
-                <div class="product-card" onclick="addToCart(${p.id}, '${p.name.replace(/'/g, "\\'")}', ${p.price})">
-                    ${displayIcon}
-                    <h4>${p.name}</h4>
-                    <div class="price">₱${parseFloat(p.price).toFixed(2)}</div>
-                </div>
+                    <button type="button" class="product-card" data-product-index="${index}">
+                        ${displayIcon}
+                        <h4>${escapeHtml(p.name)}</h4>
+                        ${variantLabel}
+                        <div class="price">₱${parseFloat(p.price).toFixed(2)}</div>
+                    </button>
                 `;
             }).join('');
+            grid.querySelectorAll('[data-product-index]').forEach(button => {
+                button.addEventListener('click', function () {
+                    const product = items[Number(this.dataset.productIndex)];
+                    addToCart(product.id, product.name, product.price, product.variant_id, product.variant_name);
+                });
+            });
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, character => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            })[character]);
         }
         
         function filterCategory(cat, btn) {
@@ -476,67 +525,109 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             }
         }
         
-        function addToCart(id, name, price) {
-            const existing = cart.find(item => item.id === id);
+        function addToCart(id, name, price, variantId = null, variantName = null) {
+            const existing = cart.find(item =>
+                Number(item.id) === Number(id) &&
+                Number(item.variant_id || 0) === Number(variantId || 0)
+            );
             if (existing) {
                 existing.qty++;
             } else {
-                cart.push({ id, name, price: parseFloat(price), qty: 1 });
+                cart.push({
+                    id: Number(id),
+                    variant_id: variantId ? Number(variantId) : null,
+                    name,
+                    variant_name: variantName || null,
+                    price: parseFloat(price),
+                    qty: 1
+                });
             }
             renderCart();
         }
-        
+
         function renderCart() {
             const container = document.getElementById('cart-items');
             
             if (cart.length === 0) {
                 container.innerHTML = `
                     <div class="empty-cart">
-                        <i class="fas fa-cart-plus"></i>
-                        <p>No items added yet</p>
-                        <p style="font-size: 13px; margin-top: 5px;">Click products to add</p>
+                        <i class="fas fa-basket-shopping"></i>
+                        <p>Your order is empty</p>
+                        <p style="font-size: 13px; margin-top: 5px;">Select products to begin.</p>
                     </div>
                 `;
                 document.getElementById('cart-total').textContent = '₱0.00';
+                document.getElementById('cart-subtotal').textContent = '₱0.00';
+                document.getElementById('cart-discount').textContent = '−₱0.00';
                 document.getElementById('btn-done').disabled = true;
                 sessionStorage.removeItem('cart');
+                discountAmount = 0;
+                document.getElementById('discount-amount').value = '0';
+                sessionStorage.removeItem('discount_amount');
                 return;
             }
             
-            container.innerHTML = cart.map(item => `
+            container.innerHTML = cart.map((item, index) => `
                 <div class="cart-item">
-                    <div class="cart-item-info">
-                        <h4>${item.name}</h4>
-                        <span class="item-price">₱${item.price.toFixed(2)} each</span>
+                    <div class="cart-item-main">
+                        <div class="cart-item-info">
+                            <h4>${escapeHtml(item.name)}</h4>
+                            ${item.variant_name ? `<span class="item-price">${escapeHtml(item.variant_name)}</span><br>` : ''}
+                            <span class="item-price">₱${item.price.toFixed(2)} each</span>
+                        </div>
+                        <div class="cart-item-controls">
+                            <button class="qty-btn minus" aria-label="Decrease quantity" data-qty-index="${index}" data-delta="-1">-</button>
+                            <span class="qty-display">${item.qty}</span>
+                            <button class="qty-btn plus" aria-label="Increase quantity" data-qty-index="${index}" data-delta="1">+</button>
+                        </div>
                     </div>
-                    <div class="cart-item-controls">
-                        <button class="qty-btn minus" onclick="updateQty(${item.id}, -1)">-</button>
-                        <span class="qty-display">${item.qty}</span>
-                        <button class="qty-btn plus" onclick="updateQty(${item.id}, 1)">+</button>
-                    </div>
+                    <button class="remove-item" aria-label="Remove item" title="Remove item" data-remove-index="${index}"><i class="fas fa-trash"></i></button>
                 </div>
             `).join('');
+            container.querySelectorAll('[data-qty-index]').forEach(button => {
+                button.addEventListener('click', function () {
+                    updateQty(Number(this.dataset.qtyIndex), Number(this.dataset.delta));
+                });
+            });
+            container.querySelectorAll('[data-remove-index]').forEach(button => {
+                button.addEventListener('click', function () {
+                    removeItem(Number(this.dataset.removeIndex));
+                });
+            });
             
-            const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            const validDiscount = Number.isFinite(discountAmount) && discountAmount >= 0 && discountAmount <= subtotal;
+            const displayedDiscount = Math.max(0, Number.isFinite(discountAmount) ? discountAmount : 0);
+            const total = Math.max(0, subtotal - displayedDiscount);
+            document.getElementById('cart-subtotal').textContent = '₱' + subtotal.toFixed(2);
+            document.getElementById('cart-discount').textContent = '−₱' + displayedDiscount.toFixed(2);
             document.getElementById('cart-total').textContent = '₱' + total.toFixed(2);
-            document.getElementById('btn-done').disabled = false;
+            document.getElementById('btn-done').disabled = !validDiscount;
+            document.getElementById('discount-status').textContent = validDiscount ? '' : 'Discount cannot exceed the order subtotal.';
             
             sessionStorage.setItem('cart', JSON.stringify(cart));
+            sessionStorage.setItem('discount_amount', discountAmount.toFixed(2));
+            document.getElementById('discount-amount').value = discountAmount.toFixed(2);
+        }
+
+        function removeItem(index) {
+            cart.splice(index, 1);
+            renderCart();
         }
         
-        function updateQty(id, delta) {
-            const item = cart.find(i => i.id === id);
+        function updateQty(index, delta) {
+            const item = cart[index];
             if (!item) return;
             
             item.qty += delta;
             if (item.qty <= 0) {
-                cart = cart.filter(i => i.id !== id);
+                cart.splice(index, 1);
             }
             renderCart();
         }
         
         function clearCart() {
-            if (cart.length > 0 && confirm('Clear all items from cart?')) {
+            if (cart.length > 0 && confirm('Remove all items from this order?')) {
                 cart = [];
                 renderCart();
             }
@@ -544,9 +635,26 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         
         function proceedToPayment() {
             if (cart.length === 0) return;
+            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            if (!Number.isFinite(discountAmount) || discountAmount < 0 || discountAmount > subtotal) {
+                document.getElementById('discount-status').textContent = 'Discount cannot exceed the order subtotal.';
+                return;
+            }
+            document.getElementById('discount-status').textContent = '';
             sessionStorage.setItem('cart', JSON.stringify(cart));
+            sessionStorage.setItem('discount_amount', discountAmount.toFixed(2));
             window.location.href = 'payment.php';
         }
+
+        document.getElementById('discount-amount').addEventListener('input', function () {
+            discountAmount = Number(this.value);
+            if (!Number.isFinite(discountAmount) || discountAmount < 0) discountAmount = 0;
+            document.getElementById('discount-status').textContent = '';
+            renderCart();
+        });
+        discountAmount = Number(sessionStorage.getItem('discount_amount') || 0);
+        cart = JSON.parse(sessionStorage.getItem('cart') || '[]');
+        renderCart();
         
         loadProducts();
     </script>

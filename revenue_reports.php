@@ -21,6 +21,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         /* SIDEBAR (Sticky) */
         .sidebar { position: fixed; left: 0; top: 0; width: 260px; height: 100vh; background: linear-gradient(180deg, #1a472a 0%, #0d2b18 100%); padding: 20px 0; z-index: 1000; overflow-y: auto; }
         .sidebar-brand { display: flex; align-items: center; padding: 0 25px 25px; color: white; font-size: 22px; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .sidebar-brand > .shop-logo-trigger { display: flex; align-items: center; color: inherit; text-decoration: none; }
         .sidebar-brand img { width: 48px; height: 48px; object-fit: contain; margin-right: 12px; flex-shrink: 0; }
         .sidebar-nav { padding: 15px 0; }
         .sidebar-nav a { display: flex; align-items: center; padding: 14px 25px; color: rgba(255,255,255,0.7); text-decoration: none; transition: all 0.3s; border-left: 3px solid transparent; font-size: 15px; }
@@ -116,8 +117,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 <body>
     <div class="sidebar">
         <div class="sidebar-brand">
-            <img src="assets/logo.png" alt="Star Frappe logo">
-            <span>Star Frappe</span>
+            <a href="#shop-about" class="shop-logo-trigger" aria-label="About Star Frappe"><img src="assets/logo.png" alt="Star Frappe logo"><span>Star Frappe</span></a>
         </div>
         <nav class="sidebar-nav">
             <a href="dashboard.php" class="<?= $currentPage == 'dashboard.php' ? 'active' : '' ?>"><i class="fas fa-chart-pie"></i> <span>Dashboard</span></a>
@@ -130,7 +130,9 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             
             <a href="logout.php" class="logout-link"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a>
         </nav>
+        <?php require 'includes/shop_sidebar_account.php'; ?>
     </div>
+    <?php require 'includes/mobile_navigation.php'; ?>
 
     <div class="main-wrapper">
         <!-- Header -->
@@ -356,5 +358,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             setInterval(loadReports, 20000);
         }
     </script>
+<?php require 'includes/shop_about.php'; ?>
 </body>
 </html>

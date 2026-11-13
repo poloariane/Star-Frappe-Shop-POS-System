@@ -12,12 +12,12 @@ $action = $_GET['action'] ?? '';
 if ($action === 'create' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
     
-    if (empty($input['items'])) {
+    if (!is_array($input) || empty($input['items']) || !is_array($input['items'])) {
         echo json_encode(['success' => false, 'error' => 'No items in order']);
         exit;
     }
     
-    if (!isset($input['payment_method']) || !isset($input['amount_tendered'])) {
+    if (!is_array($input) || !isset($input['payment_method']) || !isset($input['amount_tendered'])) {
         echo json_encode(['success' => false, 'error' => 'Missing payment information']);
         exit;
     }
@@ -26,41 +26,120 @@ if ($action === 'create' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->beginTransaction();
         
         $staffId = $_SESSION['staff_id'];
-        $total = floatval($input['total']);
         $paymentMethod = $input['payment_method'];
         $amountTendered = floatval($input['amount_tendered']);
-        $changeAmount = floatval($input['change_amount'] ?? 0);
+        $discountAmount = floatval($input['discount_amount'] ?? 0);
+        $validPaymentMethods = ['Cash', 'Card', 'E-Wallet (GCash)', 'E-Wallet (Maya)', 'E-Wallet (MariBank)', 'E-Wallet (Other E-Wallet)'];
+        if (!in_array($paymentMethod, $validPaymentMethods, true)) {
+            throw new InvalidArgumentException('Choose a valid payment method');
+        }
+        if (!is_finite($amountTendered) || !is_finite($discountAmount) || $amountTendered < 0 || $discountAmount < 0) {
+            throw new InvalidArgumentException('Payment and discount amounts must be valid non-negative amounts');
+        }
+
+        $productStmt = $pdo->prepare("SELECT price, status FROM product WHERE product_id = ? FOR UPDATE");
+        $variantStmt = $pdo->prepare("SELECT variant_name, price FROM product_variant WHERE variant_id = ? AND product_id = ?");
+        $normalizedItems = [];
+        $grossTotalCents = 0;
+        foreach ($input['items'] as $item) {
+            if (!is_array($item)) {
+                throw new InvalidArgumentException('The order contains an invalid item');
+            }
+            $productId = filter_var($item['id'] ?? null, FILTER_VALIDATE_INT);
+            $quantity = filter_var($item['qty'] ?? null, FILTER_VALIDATE_INT);
+            if (!$productId || !$quantity || $quantity < 1) {
+                throw new InvalidArgumentException('The order contains an invalid product or quantity');
+            }
+            $productStmt->execute([$productId]);
+            $product = $productStmt->fetch();
+            if (!$product || $product['status'] !== 'Available') {
+                throw new InvalidArgumentException('A product in this order is unavailable');
+            }
+            $variantId = null;
+            $variantName = null;
+            $unitPrice = (float)$product['price'];
+            if (isset($item['variant_id']) && $item['variant_id'] !== '' && $item['variant_id'] !== null) {
+                $variantId = filter_var($item['variant_id'], FILTER_VALIDATE_INT);
+                if (!$variantId || $variantId < 1) {
+                    throw new InvalidArgumentException('The order contains an invalid product variant');
+                }
+                $variantStmt->execute([$variantId, $productId]);
+                $variant = $variantStmt->fetch();
+                if (!$variant) {
+                    throw new InvalidArgumentException('A product variant in this order is no longer available');
+                }
+                $variantName = $variant['variant_name'];
+                $unitPrice = (float)$variant['price'];
+            }
+            $unitPriceCents = (int)round($unitPrice * 100);
+            $lineGrossCents = $unitPriceCents * $quantity;
+            $grossTotalCents += $lineGrossCents;
+            $normalizedItems[] = [
+                'id' => $productId,
+                'variant_name' => $variantName,
+                'qty' => $quantity,
+                'unit_price_cents' => $unitPriceCents,
+                'gross_cents' => $lineGrossCents
+            ];
+        }
+        if ($grossTotalCents <= 0) {
+            throw new InvalidArgumentException('The order total must be greater than zero');
+        }
+
+        $discountCents = (int)round($discountAmount * 100);
+        if ($discountCents > $grossTotalCents) {
+            throw new InvalidArgumentException('Discount cannot exceed the order subtotal');
+        }
+        $totalCents = $grossTotalCents - $discountCents;
+        $amountTenderedCents = (int)round($amountTendered * 100);
+        if ($amountTenderedCents < $totalCents) {
+            throw new InvalidArgumentException('Amount received is less than the amount due');
+        }
+        if ($paymentMethod !== 'Cash' && $amountTenderedCents !== $totalCents) {
+            throw new InvalidArgumentException('Non-cash payment amount must match the amount due');
+        }
+        $changeAmount = $paymentMethod === 'Cash' ? ($amountTenderedCents - $totalCents) / 100 : 0;
         
         $stmt = $pdo->prepare("
             INSERT INTO sale (staff_id, total_amount, status) 
             VALUES (?, ?, 'Completed')
         ");
-        $stmt->execute([$staffId, $total]);
+        $stmt->execute([$staffId, $totalCents / 100]);
         $saleId = $pdo->lastInsertId();
         
         $stmtItem = $pdo->prepare("
-            INSERT INTO sale_item (sale_id, product_id, quantity, unit_price, subtotal) 
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO sale_item (sale_id, product_id, variant_name, quantity, unit_price, subtotal)
+            VALUES (?, ?, ?, ?, ?, ?)
         ");
         
-        foreach ($input['items'] as $item) {
-            $subtotal = floatval($item['price']) * intval($item['qty']);
+        $allocatedDiscountCents = 0;
+        $cumulativeGrossCents = 0;
+        $lastItemIndex = count($normalizedItems) - 1;
+        foreach ($normalizedItems as $index => $item) {
+            $cumulativeGrossCents += $item['gross_cents'];
+            $targetAllocatedCents = $index === $lastItemIndex
+                ? $discountCents
+                : (int)round($discountCents * $cumulativeGrossCents / $grossTotalCents);
+            $lineDiscountCents = $targetAllocatedCents - $allocatedDiscountCents;
+            $allocatedDiscountCents = $targetAllocatedCents;
+            $lineNetCents = $item['gross_cents'] - $lineDiscountCents;
             $stmtItem->execute([
                 $saleId,
-                intval($item['id']),
-                intval($item['qty']),
-                floatval($item['price']),
-                $subtotal
+                $item['id'],
+                $item['variant_name'],
+                $item['qty'],
+                $item['unit_price_cents'] / 100,
+                $lineNetCents / 100
             ]);
             
-            deductIngredientsFromInventory($pdo, intval($item['id']), intval($item['qty']), $staffId);
+            deductIngredientsFromInventory($pdo, $item['id'], $item['qty'], $staffId);
         }
         
         $stmt = $pdo->prepare("
             INSERT INTO payment (sale_id, payment_method, amount_received, change_amount) 
             VALUES (?, ?, ?, ?)
         ");
-        $stmt->execute([$saleId, $paymentMethod, $amountTendered, $changeAmount]);
+        $stmt->execute([$saleId, $paymentMethod, $amountTenderedCents / 100, $changeAmount]);
         
         $receiptNumber = generateReceiptNumber($pdo);
         $stmt = $pdo->prepare("
@@ -175,6 +254,7 @@ if ($action === 'get' && isset($_GET['id'])) {
             si.product_id,
             p.product_name,
             p.emoji,
+            si.variant_name,
             si.quantity,
             si.unit_price,
             si.subtotal

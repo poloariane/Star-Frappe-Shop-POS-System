@@ -15,16 +15,39 @@ if ($action === 'list') {
             p.product_id AS id,
             p.product_name AS name,
             p.price,
+            p.default_variant_name,
+            NULL AS variant_id,
+            COALESCE(NULLIF(p.default_variant_name, ''), 'Default') AS variant_name,
             p.description,
             p.emoji,
             p.image_path,
             p.status,
             c.category_name AS category,
             c.category_id
-        FROM product p 
-        LEFT JOIN category c ON p.category_id = c.category_id 
-        WHERE p.status = 'Available' 
-        ORDER BY c.category_name, p.product_name
+        FROM product p
+        LEFT JOIN category c ON p.category_id = c.category_id
+        WHERE p.status = 'Available'
+
+        UNION ALL
+
+        SELECT
+            p.product_id AS id,
+            p.product_name AS name,
+            pv.price,
+            p.default_variant_name,
+            pv.variant_id,
+            pv.variant_name,
+            p.description,
+            p.emoji,
+            p.image_path,
+            p.status,
+            c.category_name AS category,
+            c.category_id
+        FROM product_variant pv
+        JOIN product p ON p.product_id = pv.product_id
+        LEFT JOIN category c ON c.category_id = p.category_id
+        WHERE p.status = 'Available'
+        ORDER BY category, name, variant_name
     ");
     echo json_encode($stmt->fetchAll());
     exit;

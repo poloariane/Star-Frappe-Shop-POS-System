@@ -4,11 +4,16 @@
     .shop-about-overlay {
         position: fixed;
         inset: 0;
+        width: 100%;
+        min-height: 100vh;
+        min-height: 100dvh;
         z-index: 4000;
         display: none;
         align-items: center;
         justify-content: center;
         padding: 20px;
+        overflow-y: auto;
+        overscroll-behavior: contain;
         background: rgba(9, 24, 14, .68);
     }
     .shop-about-overlay.is-open { display: flex; }
@@ -48,8 +53,8 @@
     .shop-about-meta i { margin-right: 6px; color: #1a472a; }
     .shop-about-social { display: inline-flex; align-items: center; gap: 9px; margin-top: 24px; padding: 12px 17px; border-radius: 9px; background: #1a472a; color: #fff; text-decoration: none; font-weight: 700; }
     .shop-about-social:hover { background: #2d5a27; }
-    @media (max-width: 600px) {
-        .shop-about-overlay { align-items: flex-start; overflow-y: auto; padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)); }
+    @media (max-width: 768px) {
+        .shop-about-overlay { align-items: flex-start; padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)); }
         .shop-about-dialog { width: 100%; min-height: 0; max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); margin: auto 0; padding: 24px 20px; border-radius: 16px; -webkit-overflow-scrolling: touch; }
         .shop-about-brand { gap: 12px; padding-right: 36px; margin-bottom: 16px; }
         .shop-about-brand img { width: 64px; height: 64px; flex: 0 0 64px; }
@@ -57,6 +62,13 @@
         .shop-about-meta { flex-direction: column; gap: 10px; }
         .shop-about-meta span { overflow-wrap: anywhere; line-height: 1.5; }
         .shop-about-social { max-width: 100%; padding: 11px 13px; font-size: 14px; }
+    }
+    @media (max-height: 560px) and (max-width: 900px) {
+        .shop-about-overlay { align-items: flex-start; padding-top: 8px; padding-bottom: 8px; }
+        .shop-about-dialog { max-height: calc(100vh - 16px); max-height: calc(100dvh - 16px); margin: 0; padding-top: 18px; padding-bottom: 18px; }
+        .shop-about-brand img { width: 52px; height: 52px; flex-basis: 52px; }
+        .shop-about-brand { margin-bottom: 12px; }
+        .shop-about-social { margin-top: 16px; }
     }
     @media (max-width: 360px) {
         .shop-about-overlay { padding-right: 8px; padding-left: 8px; }

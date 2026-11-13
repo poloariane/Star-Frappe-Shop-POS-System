@@ -85,15 +85,15 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         .btn-export:hover { background: #1a472a; }
         .sales-summary { grid-template-columns: repeat(2, minmax(180px, 280px)); }
         .report-location { margin-top: 6px; color: #777 !important; font-size: 13px !important; }
-        .report-modal { display: none; position: fixed; inset: 0; z-index: 3000; align-items: center; justify-content: center; padding: 20px; background: rgba(0,0,0,.5); }
+        .report-modal { display: none; position: fixed; inset: 0; z-index: 3000; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; overscroll-behavior: contain; background: rgba(0,0,0,.5); }
         .report-modal.show { display: flex; }
-        .report-modal-card { width: min(440px, 100%); padding: 26px; border-radius: 14px; background: white; box-shadow: 0 15px 50px rgba(0,0,0,.2); }
+        .report-modal-card { width: min(440px, 100%); max-height: 100%; overflow-y: auto; padding: 26px; border-radius: 14px; background: white; box-shadow: 0 15px 50px rgba(0,0,0,.2); }
         .report-modal-card h2 { margin-bottom: 8px; color: #1a472a; font-size: 21px; }
         .report-modal-card p { margin-bottom: 20px; color: #687168; font-size: 13px; }
         .report-modal-card label { display: block; margin: 14px 0 6px; color: #555; font-size: 12px; font-weight: 700; text-transform: uppercase; }
         .report-modal-card select, .report-modal-card input { width: 100%; padding: 11px 12px; border: 2px solid #e8f0e8; border-radius: 8px; font: inherit; }
-        .report-modal-actions { display: flex; gap: 10px; margin-top: 22px; }
-        .report-modal-actions button { flex: 1; justify-content: center; margin: 0; }
+        .report-modal-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 22px; }
+        .report-modal-actions button { min-width: 0; justify-content: center; margin: 0; white-space: normal; }
         .report-modal-actions .btn-cancel { padding: 12px 16px; border: 0; border-radius: 8px; background: #edf1ed; color: #485248; font-weight: 600; cursor: pointer; }
         
         /* RESPONSIVE */
@@ -111,6 +111,22 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             .dashboard-header { flex-direction: column; align-items: flex-start; gap: 10px; }
             .report-date-row { align-items: stretch; }
             .report-date-row .btn-apply { justify-content: center; }
+            .report-modal { align-items: flex-start; padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)); }
+            .report-modal-card { width: 100%; max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); margin: auto 0; padding: 22px 18px; -webkit-overflow-scrolling: touch; }
+            .report-modal-actions { grid-template-columns: 1fr 1fr; }
+            .report-modal-actions .btn-cancel { grid-column: 1 / -1; }
+            .report-export-row .filter-actions, .report-export-row .btn-export { width: 100%; justify-content: center; }
+        }
+        @media (max-width: 420px) {
+            .report-modal { padding-right: 8px; padding-left: 8px; }
+            .report-modal-card { padding: 18px 14px; border-radius: 12px; }
+            .report-modal-card h2 { font-size: 19px; }
+            .report-modal-actions { grid-template-columns: 1fr; }
+            .report-modal-actions .btn-cancel { grid-column: auto; }
+        }
+        @media (max-height: 560px) and (max-width: 900px) {
+            .report-modal { align-items: flex-start; padding-top: 8px; padding-bottom: 8px; }
+            .report-modal-card { max-height: calc(100vh - 16px); max-height: calc(100dvh - 16px); margin: 0; }
         }
     </style>
 </head>

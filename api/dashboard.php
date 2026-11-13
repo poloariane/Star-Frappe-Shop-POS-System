@@ -10,6 +10,44 @@ $action = $_GET['action'] ?? '';
 // STATS — for the dashboard stat cards + recent sales
 // ============================================
 if ($action === 'stats') {
+    if (isStaff()) {
+        $stmt = $pdo->query("
+            SELECT COUNT(*) AS sales_today, COALESCE(SUM(total_amount), 0) AS revenue_today
+            FROM sale
+            WHERE DATE(sale_date) = CURDATE() AND status = 'Completed'
+        ");
+        $todaySales = $stmt->fetch();
+
+        $stmt = $pdo->query("
+            SELECT p.product_name, SUM(si.quantity) AS total_qty
+            FROM sale_item si
+            JOIN sale s ON si.sale_id = s.sale_id
+            JOIN product p ON si.product_id = p.product_id
+            WHERE DATE(s.sale_date) = CURDATE() AND s.status = 'Completed'
+            GROUP BY p.product_id, p.product_name
+            ORDER BY total_qty DESC, p.product_name
+            LIMIT 5
+        ");
+        $todayTopItems = $stmt->fetchAll();
+
+        $stmt = $pdo->query("
+            SELECT COALESCE(SUM(si.quantity), 0) AS items_sold_today
+            FROM sale_item si
+            JOIN sale s ON si.sale_id = s.sale_id
+            WHERE DATE(s.sale_date) = CURDATE() AND s.status = 'Completed'
+        ");
+        $itemsSoldToday = (int)$stmt->fetch()['items_sold_today'];
+
+        echo json_encode([
+            'sales_today' => (int)$todaySales['sales_today'],
+            'revenue_today' => (float)$todaySales['revenue_today'],
+            'best_seller_today' => $todayTopItems[0] ?? null,
+            'top_items_today' => $todayTopItems,
+            'items_sold_today' => $itemsSoldToday
+        ]);
+        exit;
+    }
+
     // Total sales count
     $stmt = $pdo->query("SELECT COUNT(*) as total FROM sale WHERE status = 'Completed'");
     $totalSales = $stmt->fetch()['total'];
@@ -80,6 +118,12 @@ if ($action === 'stats') {
 // CHART — sales data for day/week/month views
 // ============================================
 if ($action === 'chart') {
+    if (!isAdmin()) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Access denied']);
+        exit;
+    }
+
     $period = $_GET['period'] ?? 'day';
     
     if ($period === 'day') {
@@ -175,6 +219,12 @@ if ($action === 'chart') {
 // EXPENSES SUMMARY (for admin dashboard extension)
 // ============================================
 if ($action === 'expenses_summary') {
+    if (!isAdmin()) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Access denied']);
+        exit;
+    }
+
     // Total expenses this month
     $stmt = $pdo->query("
         SELECT COALESCE(SUM(amount), 0) as total 

@@ -1,7 +1,8 @@
 <?php
 require_once 'config/database.php';
-requireAdmin();
+requireLogin();
 
+$isAdmin = isAdmin();
 $today = date('Y-m-d');
 $startOfMonth = date('Y-m-01');
 $currentPage = basename($_SERVER['PHP_SELF']);
@@ -38,16 +39,16 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         
         /* FILTER BAR */
         .filter-bar { background: white; padding: 20px 25px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px; }
-        .date-inputs { display: flex; gap: 20px; align-items: center; }
+        .date-inputs { display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap; }
         .date-group { display: flex; flex-direction: column; }
         .date-group label { font-size: 12px; color: #666; font-weight: 600; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
         .date-group input { padding: 10px 15px; border: 2px solid #e8f0e8; border-radius: 8px; font-family: inherit; color: #333; outline: none; transition: all 0.3s; background: #f8faf8; }
         .date-group input:focus { border-color: #1a472a; background: white; box-shadow: 0 0 0 3px rgba(26, 71, 42, 0.1); }
-        .btn-apply { background: #1a472a; color: white; border: none; padding: 12px 25px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.3s; margin-top: 15px; }
+        .btn-apply { background: #1a472a; color: white; border: none; padding: 12px 25px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.3s; margin-top: 0; }
         .btn-apply:hover { background: #2d5a27; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(26, 71, 42, 0.2); }
 
         /* STATS GRID */
-        .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; margin-bottom: 30px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px; margin-bottom: 30px; }
         .stat-card { background: white; padding: 25px 20px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); position: relative; overflow: hidden; transition: all 0.3s; border-bottom: 4px solid transparent; }
         .stat-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
         
@@ -76,6 +77,23 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         
         /* Make amounts bold and dark green */
         .data-table td:last-child { font-weight: 700; color: #1a1a1a; }
+        .filter-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .report-date-row { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; width: 100%; }
+        .report-export-row { width: 100%; }
+        .btn-export { background: #2d5a27; color: white; border: none; padding: 12px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
+        .btn-export:hover { background: #1a472a; }
+        .sales-summary { grid-template-columns: repeat(2, minmax(180px, 280px)); }
+        .report-location { margin-top: 6px; color: #777 !important; font-size: 13px !important; }
+        .report-modal { display: none; position: fixed; inset: 0; z-index: 3000; align-items: center; justify-content: center; padding: 20px; background: rgba(0,0,0,.5); }
+        .report-modal.show { display: flex; }
+        .report-modal-card { width: min(440px, 100%); padding: 26px; border-radius: 14px; background: white; box-shadow: 0 15px 50px rgba(0,0,0,.2); }
+        .report-modal-card h2 { margin-bottom: 8px; color: #1a472a; font-size: 21px; }
+        .report-modal-card p { margin-bottom: 20px; color: #687168; font-size: 13px; }
+        .report-modal-card label { display: block; margin: 14px 0 6px; color: #555; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+        .report-modal-card select, .report-modal-card input { width: 100%; padding: 11px 12px; border: 2px solid #e8f0e8; border-radius: 8px; font: inherit; }
+        .report-modal-actions { display: flex; gap: 10px; margin-top: 22px; }
+        .report-modal-actions button { flex: 1; justify-content: center; margin: 0; }
+        .report-modal-actions .btn-cancel { padding: 12px 16px; border: 0; border-radius: 8px; background: #edf1ed; color: #485248; font-weight: 600; cursor: pointer; }
         
         /* RESPONSIVE */
         @media (max-width: 1200px) { .stats-grid { grid-template-columns: repeat(3, 1fr); } }
@@ -87,9 +105,11 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         }
         @media (max-width: 768px) {
             .stats-grid { grid-template-columns: 1fr 1fr; }
-            .date-inputs { flex-direction: column; align-items: stretch; width: 100%; }
-            .btn-apply { width: 100%; justify-content: center; }
+            .date-inputs { flex-direction: column; align-items: stretch; }
+            .date-group, .date-group input { width: 100%; }
             .dashboard-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+            .report-date-row { align-items: stretch; }
+            .report-date-row .btn-apply { justify-content: center; }
         }
     </style>
 </head>
@@ -106,7 +126,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             <a href="inventory.php" class="<?= $currentPage == 'inventory.php' ? 'active' : '' ?>"><i class="fas fa-boxes"></i> <span>Inventory</span></a>
             <a href="expenses.php" class="<?= $currentPage == 'expenses.php' ? 'active' : '' ?>"><i class="fas fa-money-bill-transfer"></i> <span>Expenses</span></a>
             <a href="receipt.php" class="<?= $currentPage == 'receipt.php' ? 'active' : '' ?>"><i class="fas fa-receipt"></i> <span>Receipts</span></a>
-            <?php if (isAdmin()): ?><a href="revenue_reports.php" class="<?= $currentPage == 'revenue_reports.php' ? 'active' : '' ?>"><i class="fas fa-chart-line"></i> <span>Revenue Reports</span></a><?php endif; ?>
+            <a href="revenue_reports.php" class="<?= $currentPage == 'revenue_reports.php' ? 'active' : '' ?>"><i class="fas fa-chart-line"></i> <span><?= $isAdmin ? 'Revenue Reports' : 'Daily Sales Report' ?></span></a>
             
             <a href="logout.php" class="logout-link"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a>
         </nav>
@@ -116,25 +136,62 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         <!-- Header -->
         <div class="dashboard-header">
             <div>
-                <h1><i class="fas fa-chart-line"></i> Revenue Reports</h1>
-                <p>Shop-wide revenue, payment, product, and expense performance. (Net figure is sales less recorded expenses only.)</p>
+                <h1><i class="fas fa-chart-line"></i> <?= $isAdmin ? 'Revenue Reports' : 'Daily Sales Report' ?></h1>
+                <p><?= $isAdmin ? 'Shop-wide revenue, payment, product, and expense performance. (Net figure is sales less recorded expenses only.)' : 'Review completed sales for a selected day.' ?></p>
+                <p class="report-location"><i class="fas fa-location-dot"></i> 135 Asinas Avenue, UEP 1, Catarman, Northern Samar</p>
             </div>
             <span class="updated-time" id="last-updated"><i class="fas fa-sync-alt fa-spin"></i> Updating data...</span>
         </div>
 
         <!-- Filter -->
         <div class="filter-bar">
-            <form id="filterForm" style="display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap; width: 100%;">
+            <form id="filterForm" style="display: flex; flex-direction: column; gap: 12px; align-items: flex-start; flex-wrap: wrap; width: 100%;">
+                <div class="report-date-row">
                 <div class="date-inputs">
+                    <?php if ($isAdmin): ?>
                     <div class="date-group"><label>From Date</label><input type="date" name="from" id="fromDate" value="<?= $startOfMonth ?>"></div>
                     <div class="date-group"><label>To Date</label><input type="date" name="to" id="toDate" value="<?= $today ?>"></div>
+                    <?php else: ?>
+                    <div class="date-group"><label>Sales Date</label><input type="date" name="date" id="salesDate" value="<?= $today ?>" max="<?= $today ?>"></div>
+                    <?php endif; ?>
                 </div>
                 <button type="button" class="btn-apply" onclick="loadReports()"><i class="fas fa-filter"></i> Apply Filter</button>
+                </div>
+                <?php if ($isAdmin): ?>
+                <div class="report-export-row">
+                    <div class="filter-actions">
+                    <button type="button" class="btn-export" onclick="openReportModal()"><i class="fas fa-file-arrow-down"></i> Print / Export Report</button>
+                </div>
+                </div>
+                <?php endif; ?>
             </form>
         </div>
 
+        <?php if ($isAdmin): ?>
+        <div class="report-modal" id="reportModal" role="dialog" aria-modal="true" aria-labelledby="reportModalTitle">
+            <div class="report-modal-card">
+                <h2 id="reportModalTitle">Sales report options</h2>
+                <p>Choose the report period and whether to print or download a PDF.</p>
+                <label for="reportPeriod">Report period</label>
+                <select id="reportPeriod">
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="annual">Annual</option>
+                </select>
+                <label for="reportDate">Report date</label>
+                <input type="date" id="reportDate" value="<?= $today ?>" max="<?= $today ?>">
+                <div class="report-modal-actions">
+                    <button type="button" class="btn-export" onclick="openReportOutput('print')"><i class="fas fa-print"></i> Print</button>
+                    <button type="button" class="btn-export" onclick="openReportOutput('pdf')"><i class="fas fa-file-pdf"></i> Export PDF</button>
+                    <button type="button" class="btn-cancel" onclick="closeReportModal()">Cancel</button>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <!-- Stats -->
-        <div class="stats-grid" id="summaryStats">
+        <div class="stats-grid <?= $isAdmin ? '' : 'sales-summary' ?>" id="summaryStats">
             <div class="stat-card">
                 <div class="label"><i class="fas fa-shopping-bag"></i> Shop Sales</div>
                 <div class="value" id="val-shop-sales">0</div>
@@ -143,6 +200,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <div class="label"><i class="fas fa-money-bill-wave"></i> Gross Revenue</div>
                 <div class="value" id="val-gross-revenue">₱0.00</div>
             </div>
+            <?php if ($isAdmin): ?>
             <div class="stat-card">
                 <div class="label"><i class="fas fa-receipt"></i> Total Expenses</div>
                 <div class="value" id="val-expenses">₱0.00</div>
@@ -155,9 +213,11 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <div class="label"><i class="fas fa-calculator"></i> Average Sale</div>
                 <div class="value" id="val-average">₱0.00</div>
             </div>
+            <?php endif; ?>
         </div>
 
         <!-- Sections -->
+        <?php if ($isAdmin): ?>
         <div class="report-section">
             <h3>Daily Revenue</h3>
             <div id="daily-revenue-container"><p class="empty-msg">No sales found for this period.</p></div>
@@ -172,61 +232,108 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             <h3>Top-Selling Products</h3>
             <div id="top-products-container"><p class="empty-msg">No product sales found for this period.</p></div>
         </div>
+        <?php endif; ?>
 
         <div class="report-section">
-            <h3>Shop Sales Details</h3>
+            <h3><?= $isAdmin ? 'Shop Sales Details' : 'Completed Sales for Selected Day' ?></h3>
             <div id="sales-list-container"><p class="empty-msg">No completed sales found for this period.</p></div>
         </div>
 
+        <?php if ($isAdmin): ?>
         <div class="report-section">
             <h3>Shop Expenses</h3>
             <div id="expenses-list-container"><p class="empty-msg">No expenses recorded for this period.</p></div>
         </div>
+        <?php endif; ?>
     </div>
 
     <script>
+        const isAdmin = <?= json_encode($isAdmin) ?>;
+
+        function openReportModal() {
+            const selectedDate = isAdmin
+                ? document.getElementById('toDate').value
+                : document.getElementById('salesDate').value;
+            document.getElementById('reportDate').value = selectedDate || '<?= $today ?>';
+            document.getElementById('reportModal').classList.add('show');
+        }
+
+        function closeReportModal() {
+            document.getElementById('reportModal').classList.remove('show');
+        }
+
+        function openReportOutput(format) {
+            const params = new URLSearchParams({
+                period: document.getElementById('reportPeriod').value,
+                date: document.getElementById('reportDate').value
+            });
+            if (format === 'pdf') {
+                window.location.href = `api/revenue_reports.php?export=pdf&${params.toString()}`;
+            } else {
+                window.open(`sales_report_print.php?${params.toString()}`, '_blank', 'noopener');
+            }
+            closeReportModal();
+        }
+
+        document.getElementById('reportModal')?.addEventListener('click', function (event) {
+            if (event.target === this) {
+                closeReportModal();
+            }
+        });
+
         async function loadReports() {
-            const from = document.getElementById('fromDate').value;
-            const to = document.getElementById('toDate').value;
-            
+            const query = isAdmin
+                ? new URLSearchParams({
+                    from: document.getElementById('fromDate').value,
+                    to: document.getElementById('toDate').value
+                })
+                : new URLSearchParams({date: document.getElementById('salesDate').value});
             document.getElementById('last-updated').innerHTML = '<i class="fas fa-sync-alt fa-spin"></i> Updating data...';
 
             try {
-                const res = await fetch(`api/revenue_reports.php?from=${from}&to=${to}`);
+                const res = await fetch(`api/revenue_reports.php?${query.toString()}`);
+                if (!res.ok) {
+                    throw new Error(`Report request failed (${res.status})`);
+                }
                 const data = await res.json();
 
-                // 1. Update Summary Cards
                 document.getElementById('val-shop-sales').textContent = data.summary.shop_sales;
                 document.getElementById('val-gross-revenue').textContent = '₱' + parseFloat(data.summary.gross_revenue).toLocaleString('en-US', {minimumFractionDigits: 2});
-                document.getElementById('val-expenses').textContent = '₱' + parseFloat(data.summary.total_expenses).toLocaleString('en-US', {minimumFractionDigits: 2});
-                document.getElementById('val-net').textContent = '₱' + parseFloat(data.summary.revenue_after_expenses).toLocaleString('en-US', {minimumFractionDigits: 2});
-                document.getElementById('val-average').textContent = '₱' + parseFloat(data.summary.average_sale).toLocaleString('en-US', {minimumFractionDigits: 2});
 
-                // 2. Daily Revenue
-                const daily = data.daily_revenue;
-                if (daily.length > 0) {
-                    let html = '<table class="data-table"><thead><tr><th>Date</th><th>Revenue</th></tr></thead><tbody>';
-                    daily.forEach(d => { html += `<tr><td>${new Date(d.date).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})}</td><td>₱${parseFloat(d.revenue).toLocaleString('en-US', {minimumFractionDigits: 2})}</td></tr>`; });
-                    document.getElementById('daily-revenue-container').innerHTML = html + '</tbody></table>';
-                } else { document.getElementById('daily-revenue-container').innerHTML = '<p class="empty-msg">No sales found for this period.</p>'; }
+                if (isAdmin) {
+                    document.getElementById('val-expenses').textContent = '₱' + parseFloat(data.summary.total_expenses).toLocaleString('en-US', {minimumFractionDigits: 2});
+                    document.getElementById('val-net').textContent = '₱' + parseFloat(data.summary.revenue_after_expenses).toLocaleString('en-US', {minimumFractionDigits: 2});
+                    document.getElementById('val-average').textContent = '₱' + parseFloat(data.summary.average_sale).toLocaleString('en-US', {minimumFractionDigits: 2});
 
-                // 3. Payment Methods
-                const pm = data.payment_methods;
-                if (pm.length > 0) {
-                    let html = '<table class="data-table"><thead><tr><th>Payment Method</th><th>Total Revenue</th></tr></thead><tbody>';
-                    pm.forEach(p => { html += `<tr><td><i class="fas fa-${p.payment_method === 'Cash' ? 'money-bill' : 'mobile-alt'}" style="color:#1a472a; margin-right:8px;"></i> ${p.payment_method}</td><td>₱${parseFloat(p.total).toLocaleString('en-US', {minimumFractionDigits: 2})}</td></tr>`; });
-                    document.getElementById('payment-method-container').innerHTML = html + '</tbody></table>';
-                } else { document.getElementById('payment-method-container').innerHTML = '<p class="empty-msg">No payment data found for this period.</p>'; }
+                    const daily = data.daily_revenue;
+                    if (daily.length > 0) {
+                        let html = '<table class="data-table"><thead><tr><th>Date</th><th>Revenue</th></tr></thead><tbody>';
+                        daily.forEach(d => { html += `<tr><td>${new Date(d.date).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})}</td><td>₱${parseFloat(d.revenue).toLocaleString('en-US', {minimumFractionDigits: 2})}</td></tr>`; });
+                        document.getElementById('daily-revenue-container').innerHTML = html + '</tbody></table>';
+                    } else { document.getElementById('daily-revenue-container').innerHTML = '<p class="empty-msg">No sales found for this period.</p>'; }
 
-                // 4. Top Products
-                const tp = data.top_products;
-                if (tp.length > 0) {
-                    let html = '<table class="data-table"><thead><tr><th>Product</th><th>Qty Sold</th><th>Revenue</th></tr></thead><tbody>';
-                    tp.forEach(p => { html += `<tr><td><strong>${p.product_name}</strong></td><td><span style="background:#e8f0e8; color:#1a472a; padding:3px 10px; border-radius:12px; font-weight:700;">${p.qty_sold}</span></td><td>₱${parseFloat(p.total_revenue).toLocaleString('en-US', {minimumFractionDigits: 2})}</td></tr>`; });
-                    document.getElementById('top-products-container').innerHTML = html + '</tbody></table>';
-                } else { document.getElementById('top-products-container').innerHTML = '<p class="empty-msg">No product sales found for this period.</p>'; }
+                    const pm = data.payment_methods;
+                    if (pm.length > 0) {
+                        let html = '<table class="data-table"><thead><tr><th>Payment Method</th><th>Total Revenue</th></tr></thead><tbody>';
+                        pm.forEach(p => { html += `<tr><td><i class="fas fa-${p.payment_method === 'Cash' ? 'money-bill' : 'mobile-alt'}" style="color:#1a472a; margin-right:8px;"></i> ${p.payment_method}</td><td>₱${parseFloat(p.total).toLocaleString('en-US', {minimumFractionDigits: 2})}</td></tr>`; });
+                        document.getElementById('payment-method-container').innerHTML = html + '</tbody></table>';
+                    } else { document.getElementById('payment-method-container').innerHTML = '<p class="empty-msg">No payment data found for this period.</p>'; }
 
-                // 5. Sales List
+                    const tp = data.top_products;
+                    if (tp.length > 0) {
+                        let html = '<table class="data-table"><thead><tr><th>Product</th><th>Qty Sold</th><th>Revenue</th></tr></thead><tbody>';
+                        tp.forEach(p => { html += `<tr><td><strong>${p.product_name}</strong></td><td><span style="background:#e8f0e8; color:#1a472a; padding:3px 10px; border-radius:12px; font-weight:700;">${p.qty_sold}</span></td><td>₱${parseFloat(p.total_revenue).toLocaleString('en-US', {minimumFractionDigits: 2})}</td></tr>`; });
+                        document.getElementById('top-products-container').innerHTML = html + '</tbody></table>';
+                    } else { document.getElementById('top-products-container').innerHTML = '<p class="empty-msg">No product sales found for this period.</p>'; }
+
+                    const el = data.expenses_list;
+                    if (el.length > 0) {
+                        let html = '<table class="data-table"><thead><tr><th>Expense Description</th><th>Date</th><th>Amount</th></tr></thead><tbody>';
+                        el.forEach(e => { html += `<tr><td>${e.expense_name}</td><td>${new Date(e.expense_date).toLocaleDateString()}</td><td style="color:#dc3545;">- ₱${parseFloat(e.amount).toLocaleString('en-US', {minimumFractionDigits: 2})}</td></tr>`; });
+                        document.getElementById('expenses-list-container').innerHTML = html + '</tbody></table>';
+                    } else { document.getElementById('expenses-list-container').innerHTML = '<p class="empty-msg">No expenses recorded for this period.</p>'; }
+                }
+
                 const sl = data.sales_list;
                 if (sl.length > 0) {
                     let html = '<table class="data-table"><thead><tr><th>Receipt #</th><th>Date & Time</th><th>Total Amount</th></tr></thead><tbody>';
@@ -234,18 +341,10 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     document.getElementById('sales-list-container').innerHTML = html + '</tbody></table>';
                 } else { document.getElementById('sales-list-container').innerHTML = '<p class="empty-msg">No completed sales found for this period.</p>'; }
 
-                // 6. Expenses List
-                const el = data.expenses_list;
-                if (el.length > 0) {
-                    let html = '<table class="data-table"><thead><tr><th>Expense Description</th><th>Date</th><th>Amount</th></tr></thead><tbody>';
-                    el.forEach(e => { html += `<tr><td>${e.expense_name}</td><td>${new Date(e.expense_date).toLocaleDateString()}</td><td style="color:#dc3545;">- ₱${parseFloat(e.amount).toLocaleString('en-US', {minimumFractionDigits: 2})}</td></tr>`; });
-                    document.getElementById('expenses-list-container').innerHTML = html + '</tbody></table>';
-                } else { document.getElementById('expenses-list-container').innerHTML = '<p class="empty-msg">No expenses recorded for this period.</p>'; }
-
-                document.getElementById('last-updated').innerHTML = `<i class="fas fa-check-circle" style="color:#1a472a;"></i> Last updated: ${new Date().toLocaleTimeString()} (Auto-refreshes every 20s)`;
+                document.getElementById('last-updated').innerHTML = `<i class="fas fa-check-circle" style="color:#1a472a;"></i> Last updated: ${new Date().toLocaleTimeString()}${isAdmin ? ' (Auto-refreshes every 20s)' : ''}`;
             } catch (e) {
                 console.error('Error loading reports:', e);
-                document.getElementById('last-updated').innerHTML = '<span style="color:#dc3545;"><i class="fas fa-exclamation-circle"></i> Error updating data. Please check API.</span>';
+                document.getElementById('last-updated').innerHTML = '<span style="color:#dc3545;"><i class="fas fa-exclamation-circle"></i> Error updating data. ' + e.message + '</span>';
             }
         }
 
@@ -253,7 +352,9 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         loadReports();
         
         // Auto refresh every 20 seconds
-        setInterval(loadReports, 20000);
+        if (isAdmin) {
+            setInterval(loadReports, 20000);
+        }
     </script>
 </body>
 </html>

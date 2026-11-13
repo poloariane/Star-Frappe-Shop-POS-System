@@ -339,11 +339,9 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             <a href="receipt.php" class="<?= $currentPage == 'receipt.php' ? 'active' : '' ?>">
                 <i class="fas fa-receipt"></i> <span>Receipts</span>
             </a>
-            <?php if (isAdmin()): ?>
             <a href="revenue_reports.php" class="<?= $currentPage == 'revenue_reports.php' ? 'active' : '' ?>">
-                <i class="fas fa-chart-line"></i> <span>Revenue Reports</span>
+                <i class="fas fa-chart-line"></i> <span><?= isAdmin() ? 'Revenue Reports' : 'Daily Sales Report' ?></span>
             </a>
-            <?php endif; ?>
             <a href="logout.php" class="logout-link">
                 <i class="fas fa-sign-out-alt"></i> <span>Logout</span>
             </a>

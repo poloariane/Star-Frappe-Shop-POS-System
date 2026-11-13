@@ -12,10 +12,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_item'])) {
         if (empty($itemName) || empty($unit)) { $message = 'Item name and unit are required'; $messageType = 'error'; } 
         else {
             try {
+                if ($currentStock < 0 || $reorderLevel < 0) {
+                    throw new InvalidArgumentException('Stock and reorder levels cannot be negative');
+                }
+                $pdo->beginTransaction();
                 $stmt = $pdo->prepare("INSERT INTO inventory_item (item_name, unit, current_stock, reorder_level, status) VALUES (?, ?, ?, ?, CASE WHEN ? <= 0 THEN 'Out of Stock' WHEN ? <= ? THEN 'Low Stock' ELSE 'In Stock' END)");
                 $stmt->execute([$itemName, $unit, $currentStock, $reorderLevel, $currentStock, $currentStock, $reorderLevel]);
+                $itemId = (int)$pdo->lastInsertId();
+                if ($currentStock > 0) {
+                    $stmt = $pdo->prepare("INSERT INTO inventory_transaction (inventory_item_id, staff_id, transaction_type, quantity, remarks) VALUES (?, ?, 'Add', ?, 'Initial stock')");
+                    $stmt->execute([$itemId, $_SESSION['staff_id'], $currentStock]);
+                }
+                $pdo->commit();
                 $message = 'Inventory item added successfully!'; $messageType = 'success';
-            } catch (PDOException $e) { $message = 'Item already exists or invalid data'; $messageType = 'error'; }
+            } catch (Exception $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                $message = $e instanceof InvalidArgumentException ? $e->getMessage() : 'Item already exists or invalid data';
+                $messageType = 'error';
+            }
         }
     }
 }
@@ -61,7 +77,22 @@ $recipeStmt = $pdo->query("SELECT pi.product_ingredient_id, pi.product_id, pi.in
 $recipes = $recipeStmt->fetchAll();
 $recipesByProduct = [];
 foreach ($recipes as $r) { $recipesByProduct[$r['product_id']]['name'] = $r['product_name']; $recipesByProduct[$r['product_id']]['ingredients'][] = $r; }
-$transactions = $pdo->query("SELECT t.*, ii.item_name, ii.unit, s.name as staff_name FROM inventory_transaction t JOIN inventory_item ii ON t.inventory_item_id = ii.inventory_item_id LEFT JOIN staff s ON t.staff_id = s.staff_id ORDER BY t.transaction_date DESC LIMIT 20")->fetchAll();
+$transactionFrom = $_GET['transaction_from'] ?? date('Y-m-01');
+$transactionTo = $_GET['transaction_to'] ?? date('Y-m-d');
+foreach ([$transactionFrom, $transactionTo] as $filterDate) {
+    $dateParts = explode('-', (string)$filterDate);
+    if (count($dateParts) !== 3 || !checkdate((int)$dateParts[1], (int)$dateParts[2], (int)$dateParts[0]) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$filterDate)) {
+        http_response_code(400);
+        exit('Invalid inventory transaction date filter');
+    }
+}
+if ($transactionFrom > $transactionTo) {
+    http_response_code(400);
+    exit('The start date must be on or before the end date');
+}
+$transactionStmt = $pdo->prepare("SELECT t.*, ii.item_name, ii.unit, s.name as staff_name FROM inventory_transaction t JOIN inventory_item ii ON t.inventory_item_id = ii.inventory_item_id LEFT JOIN staff s ON t.staff_id = s.staff_id WHERE DATE(t.transaction_date) BETWEEN ? AND ? ORDER BY t.transaction_date DESC");
+$transactionStmt->execute([$transactionFrom, $transactionTo]);
+$transactions = $transactionStmt->fetchAll();
 $totalItems = count($inventoryItems); $lowStockCount = 0; $outOfStockCount = 0;
 foreach ($inventoryItems as $item) { if ($item['status'] === 'Out of Stock') $outOfStockCount++; elseif ($item['status'] === 'Low Stock') $lowStockCount++; }
 ?>
@@ -145,6 +176,10 @@ foreach ($inventoryItems as $item) { if ($item['status'] === 'Out of Stock') $ou
         .ingredient-chip { background: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; color: #1a1a1a; display: inline-flex; align-items: center; gap: 6px; border: 1px solid #e8f0e8; }
         .ingredient-chip .remove { color: #dc3545; text-decoration: none; font-weight: 700; cursor: pointer; }
         .empty-state { text-align: center; padding: 40px; color: #999; }
+        .transaction-filter { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+        .transaction-filter label { display: flex; flex-direction: column; gap: 4px; color: #666; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+        .transaction-filter input { padding: 8px 10px; border: 2px solid #e8f0e8; border-radius: 8px; }
+        .transaction-filter button, .transaction-filter a { padding: 9px 13px; border: 0; border-radius: 8px; background: #1a472a; color: white; cursor: pointer; font-weight: 600; text-decoration: none; }
         
         @media (max-width: 992px) { 
             .sidebar { width: 70px; } 
@@ -169,7 +204,7 @@ foreach ($inventoryItems as $item) { if ($item['status'] === 'Out of Stock') $ou
             <a href="inventory.php" class="<?= $currentPage == 'inventory.php' ? 'active' : '' ?>"><i class="fas fa-boxes"></i> <span>Inventory</span></a>
             <a href="expenses.php" class="<?= $currentPage == 'expenses.php' ? 'active' : '' ?>"><i class="fas fa-money-bill-transfer"></i> <span>Expenses</span></a>
             <a href="receipt.php" class="<?= $currentPage == 'receipt.php' ? 'active' : '' ?>"><i class="fas fa-receipt"></i> <span>Receipts</span></a>
-            <?php if (isAdmin()): ?><a href="revenue_reports.php" class="<?= $currentPage == 'revenue_reports.php' ? 'active' : '' ?>"><i class="fas fa-chart-line"></i> <span>Revenue Reports</span></a><?php endif; ?>
+            <a href="revenue_reports.php" class="<?= $currentPage == 'revenue_reports.php' ? 'active' : '' ?>"><i class="fas fa-chart-line"></i> <span><?= isAdmin() ? 'Revenue Reports' : 'Daily Sales Report' ?></span></a>
             
             <a href="logout.php" class="logout-link"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a>
         </nav>
@@ -282,7 +317,13 @@ foreach ($inventoryItems as $item) { if ($item['status'] === 'Out of Stock') $ou
         
         <div class="tab-content" id="history-tab">
             <div class="card">
-                <h2><i class="fas fa-history"></i> Recent Stock Transactions (Last 20)</h2>
+                <h2><i class="fas fa-history"></i> Stock Transaction History</h2>
+                <form method="GET" action="inventory.php#history-tab" class="transaction-filter">
+                    <label>From date<input type="date" name="transaction_from" value="<?= htmlspecialchars($transactionFrom) ?>" required></label>
+                    <label>To date<input type="date" name="transaction_to" value="<?= htmlspecialchars($transactionTo) ?>" required></label>
+                    <button type="submit"><i class="fas fa-filter"></i> Filter history</button>
+                    <a href="inventory.php#history-tab"><i class="fas fa-rotate-left"></i> This month</a>
+                </form>
                 <?php if (empty($transactions)): ?><div class="empty-state"><p>No transactions yet.</p></div>
                 <?php else: ?>
                 <table class="data-table">
@@ -310,6 +351,9 @@ foreach ($inventoryItems as $item) { if ($item['status'] === 'Out of Stock') $ou
                 document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                 btn.classList.add('active');
                 document.getElementById(tab + '-tab').classList.add('active');
+            }
+            if (window.location.hash === '#history-tab') {
+                showTab('history', document.querySelector('.tab-btn[onclick*="history"]'));
             }
         </script>
     </div>

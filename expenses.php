@@ -34,13 +34,23 @@ $totalThisMonth = $pdo->query("SELECT COALESCE(SUM(amount), 0) as total FROM exp
 $totalAllTime = $pdo->query("SELECT COALESCE(SUM(amount), 0) as total FROM expense")->fetch()['total'];
 $totalThisYear = $pdo->query("SELECT COALESCE(SUM(amount), 0) as total FROM expense WHERE YEAR(expense_date) = YEAR(CURDATE())")->fetch()['total'];
 
-$filterMonth = $_GET['month'] ?? ''; $whereClause = ''; $params = [];
-if ($filterMonth) { $whereClause = "WHERE DATE_FORMAT(expense_date, '%Y-%m') = ?"; $params[] = $filterMonth; }
+$filterFrom = $_GET['from'] ?? date('Y-m-01');
+$filterTo = $_GET['to'] ?? date('Y-m-d');
+foreach ([$filterFrom, $filterTo] as $filterDate) {
+    $dateParts = explode('-', (string)$filterDate);
+    if (count($dateParts) !== 3 || !checkdate((int)$dateParts[1], (int)$dateParts[2], (int)$dateParts[0]) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$filterDate)) {
+        http_response_code(400);
+        exit('Invalid expense date filter');
+    }
+}
+if ($filterFrom > $filterTo) {
+    http_response_code(400);
+    exit('The start date must be on or before the end date');
+}
 
-$stmt = $pdo->prepare("SELECT e.*, s.name as staff_name FROM expense e LEFT JOIN staff s ON e.staff_id = s.staff_id $whereClause ORDER BY e.expense_date DESC, e.expense_id DESC");
-$stmt->execute($params);
+$stmt = $pdo->prepare("SELECT e.*, s.name as staff_name FROM expense e LEFT JOIN staff s ON e.staff_id = s.staff_id WHERE DATE(e.expense_date) BETWEEN ? AND ? ORDER BY e.expense_date DESC, e.expense_id DESC");
+$stmt->execute([$filterFrom, $filterTo]);
 $expenses = $stmt->fetchAll();
-$months = $pdo->query("SELECT DISTINCT DATE_FORMAT(expense_date, '%Y-%m') as ym, DATE_FORMAT(expense_date, '%M %Y') as month_label FROM expense ORDER BY ym DESC")->fetchAll();
 $today = date('Y-m-d');
 ?>
 <!DOCTYPE html>
@@ -90,8 +100,10 @@ $today = date('Y-m-d');
         
         .list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
         .list-header h2 { margin-bottom: 0; }
-        .filter-form { display: flex; gap: 8px; }
-        .filter-form select { padding: 8px 12px; border: 2px solid #e8f0e8; border-radius: 8px; font-size: 13px; background: white; cursor: pointer; }
+        .filter-form { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+        .filter-form label { display: flex; flex-direction: column; gap: 4px; color: #666; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+        .filter-form input { padding: 8px 10px; border: 2px solid #e8f0e8; border-radius: 8px; font-size: 13px; background: white; }
+        .filter-form button { padding: 9px 13px; border: 0; border-radius: 8px; background: #1a472a; color: white; cursor: pointer; font-weight: 600; }
         
         .data-table { width: 100%; border-collapse: collapse; }
         .data-table th { text-align: left; padding: 12px; background: #f8faf8; color: #666; font-size: 12px; font-weight: 600; text-transform: uppercase; }
@@ -136,7 +148,7 @@ $today = date('Y-m-d');
             <a href="inventory.php" class="<?= $currentPage == 'inventory.php' ? 'active' : '' ?>"><i class="fas fa-boxes"></i> <span>Inventory</span></a>
             <a href="expenses.php" class="<?= $currentPage == 'expenses.php' ? 'active' : '' ?>"><i class="fas fa-money-bill-transfer"></i> <span>Expenses</span></a>
             <a href="receipt.php" class="<?= $currentPage == 'receipt.php' ? 'active' : '' ?>"><i class="fas fa-receipt"></i> <span>Receipts</span></a>
-            <?php if (isAdmin()): ?><a href="revenue_reports.php" class="<?= $currentPage == 'revenue_reports.php' ? 'active' : '' ?>"><i class="fas fa-chart-line"></i> <span>Revenue Reports</span></a><?php endif; ?>
+            <a href="revenue_reports.php" class="<?= $currentPage == 'revenue_reports.php' ? 'active' : '' ?>"><i class="fas fa-chart-line"></i> <span><?= isAdmin() ? 'Revenue Reports' : 'Daily Sales Report' ?></span></a>
             
             <a href="logout.php" class="logout-link"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a>
         </nav>
@@ -182,11 +194,10 @@ $today = date('Y-m-d');
                 <div class="list-header">
                     <h2><i class="fas fa-list"></i> Expense Records (<?= count($expenses) ?>)</h2>
                     <form method="GET" class="filter-form">
-                        <select name="month" onchange="this.form.submit()">
-                            <option value="">All Months</option>
-                            <?php foreach ($months as $m): ?><option value="<?= $m['ym'] ?>" <?= $filterMonth === $m['ym'] ? 'selected' : '' ?>><?= htmlspecialchars($m['month_label']) ?></option><?php endforeach; ?>
-                        </select>
-                        <?php if ($filterMonth): ?><a href="expenses.php" class="btn-action btn-edit" style="text-decoration: none;"><i class="fas fa-times"></i> Clear</a><?php endif; ?>
+                        <label>From<input type="date" name="from" value="<?= htmlspecialchars($filterFrom) ?>" required></label>
+                        <label>To<input type="date" name="to" value="<?= htmlspecialchars($filterTo) ?>" required></label>
+                        <button type="submit"><i class="fas fa-filter"></i> Filter</button>
+                        <a href="expenses.php" class="btn-action btn-edit" style="text-decoration: none;"><i class="fas fa-rotate-left"></i> This Month</a>
                     </form>
                 </div>
                 <?php if (empty($expenses)): ?>

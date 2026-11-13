@@ -21,7 +21,22 @@ if ($showSingle) {
     }
 }
 
-$stmt = $pdo->query("SELECT s.sale_id, s.sale_date, s.total_amount, s.status, st.name as staff_name, r.receipt_number, p.payment_method FROM sale s LEFT JOIN staff st ON s.staff_id = st.staff_id LEFT JOIN receipt r ON s.sale_id = r.sale_id LEFT JOIN payment p ON s.sale_id = p.sale_id ORDER BY s.sale_date DESC LIMIT 100");
+$filterFrom = $_GET['from'] ?? date('Y-m-01');
+$filterTo = $_GET['to'] ?? date('Y-m-d');
+foreach ([$filterFrom, $filterTo] as $filterDate) {
+    $dateParts = explode('-', (string)$filterDate);
+    if (count($dateParts) !== 3 || !checkdate((int)$dateParts[1], (int)$dateParts[2], (int)$dateParts[0]) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$filterDate)) {
+        http_response_code(400);
+        exit('Invalid receipt date filter');
+    }
+}
+if ($filterFrom > $filterTo) {
+    http_response_code(400);
+    exit('The start date must be on or before the end date');
+}
+
+$stmt = $pdo->prepare("SELECT s.sale_id, s.sale_date, s.total_amount, s.status, st.name as staff_name, r.receipt_number, p.payment_method FROM sale s LEFT JOIN staff st ON s.staff_id = st.staff_id LEFT JOIN receipt r ON s.sale_id = r.sale_id LEFT JOIN payment p ON s.sale_id = p.sale_id WHERE DATE(s.sale_date) BETWEEN ? AND ? ORDER BY s.sale_date DESC");
+$stmt->execute([$filterFrom, $filterTo]);
 $allSales = $stmt->fetchAll();
 $completedCount = 0; $voidCount = 0;
 foreach ($allSales as $s) { if ($s['status'] === 'Void') $voidCount++; else $completedCount++; }
@@ -51,6 +66,10 @@ foreach ($allSales as $s) { if ($s['status'] === 'Void') $voidCount++; else $com
         .header h1 { color: #1a472a; display: flex; align-items: center; gap: 10px; }
         
         .stats-row { max-width: 900px; margin: 0 auto 25px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .receipt-filter { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; padding: 18px 22px; background: white; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .receipt-filter label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; }
+        .receipt-filter input { padding: 9px 10px; border: 2px solid #e8f0e8; border-radius: 8px; }
+        .receipt-filter button { padding: 10px 15px; border: 0; border-radius: 8px; background: #1a472a; color: white; font-weight: 600; cursor: pointer; }
         .stat-box { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 20px; transition: all 0.3s; border-left: 4px solid transparent; }
         .stat-box:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
         .stat-box.completed { border-left-color: #1a472a; }
@@ -146,7 +165,7 @@ foreach ($allSales as $s) { if ($s['status'] === 'Void') $voidCount++; else $com
             <a href="inventory.php" class="<?= $currentPage == 'inventory.php' ? 'active' : '' ?>"><i class="fas fa-boxes"></i> <span>Inventory</span></a>
             <a href="expenses.php" class="<?= $currentPage == 'expenses.php' ? 'active' : '' ?>"><i class="fas fa-money-bill-transfer"></i> <span>Expenses</span></a>
             <a href="receipt.php" class="<?= $currentPage == 'receipt.php' ? 'active' : '' ?>"><i class="fas fa-receipt"></i> <span>Receipts</span></a>
-            <?php if (isAdmin()): ?><a href="revenue_reports.php" class="<?= $currentPage == 'revenue_reports.php' ? 'active' : '' ?>"><i class="fas fa-chart-line"></i> <span>Revenue Reports</span></a><?php endif; ?>
+            <a href="revenue_reports.php" class="<?= $currentPage == 'revenue_reports.php' ? 'active' : '' ?>"><i class="fas fa-chart-line"></i> <span><?= isAdmin() ? 'Revenue Reports' : 'Daily Sales Report' ?></span></a>
             
             <a href="logout.php" class="logout-link"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a>
         </nav>
@@ -233,12 +252,18 @@ foreach ($allSales as $s) { if ($s['status'] === 'Void') $voidCount++; else $com
         <?php elseif ($showSingle && !$sale): ?>
         <div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h2>Receipt Not Found</h2><p>No sale found with ID #<?= $saleId ?></p><br><a href="receipt.php" class="btn-print" style="display: inline-flex; text-decoration: none;"><i class="fas fa-list"></i> View All Receipts</a></div>
         <?php else: ?>
+        <form method="GET" class="receipt-filter">
+            <label>From date<input type="date" name="from" value="<?= htmlspecialchars($filterFrom) ?>" required></label>
+            <label>To date<input type="date" name="to" value="<?= htmlspecialchars($filterTo) ?>" required></label>
+            <button type="submit"><i class="fas fa-filter"></i> Filter receipts</button>
+            <a href="receipt.php" class="btn-print" style="padding: 10px 15px; border-radius: 8px; text-decoration: none;"><i class="fas fa-rotate-left"></i> This month</a>
+        </form>
         <div class="stats-row">
             <div class="stat-box completed"><div class="icon"><i class="fas fa-check-circle"></i></div><div><h3>Completed</h3><p><?= $completedCount ?></p></div></div>
             <div class="stat-box void"><div class="icon"><i class="fas fa-ban"></i></div><div><h3>Void</h3><p><?= $voidCount ?></p></div></div>
         </div>
         <div class="orders-list">
-            <h2><i class="fas fa-history"></i> Recent Receipts</h2>
+            <h2><i class="fas fa-history"></i> Receipts (<?= htmlspecialchars(date('M d, Y', strtotime($filterFrom))) ?> – <?= htmlspecialchars(date('M d, Y', strtotime($filterTo))) ?>)</h2>
             <?php if (empty($allSales)): ?>
                 <div class="empty-state"><i class="fas fa-receipt"></i><p>No sales yet</p><p style="margin-top: 10px; font-size: 13px;">Complete an order in the POS to see receipts here.</p></div>
             <?php else: ?>

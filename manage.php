@@ -87,6 +87,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_category'])) {
     }
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_category'])) {
+    $categoryId = intval($_POST['category_id'] ?? 0);
+    if ($categoryId <= 0) {
+        $message = 'Invalid category selected';
+        $messageType = 'error';
+    } else {
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM product WHERE category_id = ?");
+        $stmt->execute([$categoryId]);
+        if ((int)$stmt->fetchColumn() > 0) {
+            $message = 'This category is assigned to products. Reassign or delete those products before deleting the category.';
+            $messageType = 'error';
+        } else {
+            $stmt = $pdo->prepare("DELETE FROM category WHERE category_id = ?");
+            $stmt->execute([$categoryId]);
+            if ($stmt->rowCount() > 0) {
+                $message = 'Category deleted successfully!';
+                $messageType = 'success';
+            } else {
+                $message = 'Category not found';
+                $messageType = 'error';
+            }
+        }
+    }
+}
+
 // ============================================
 // DELETE & TOGGLE ACTIONS
 // ============================================
@@ -111,7 +136,7 @@ if (isset($_GET['toggle_product'])) { $stmt = $pdo->prepare("UPDATE product SET 
 // ============================================
 $staffList = $pdo->query("SELECT * FROM staff ORDER BY created_at DESC")->fetchAll();
 $productList = $pdo->query("SELECT p.*, c.category_name FROM product p LEFT JOIN category c ON p.category_id = c.category_id ORDER BY c.category_name, p.product_name")->fetchAll();
-$categories = $pdo->query("SELECT * FROM category ORDER BY category_name")->fetchAll();
+$categories = $pdo->query("SELECT c.category_id, c.category_name, COUNT(p.product_id) AS product_count FROM category c LEFT JOIN product p ON p.category_id = c.category_id GROUP BY c.category_id, c.category_name ORDER BY c.category_name")->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -320,6 +345,28 @@ $categories = $pdo->query("SELECT * FROM category ORDER BY category_name")->fetc
                             <div class="form-group"><label>Category Name *</label><input type="text" name="category_name" placeholder="e.g., Cake" required></div>
                             <button type="submit" name="add_category" class="btn-submit"><i class="fas fa-plus"></i> Add Category</button>
                         </form>
+                        <h3 style="margin: 22px 0 10px; color: #1a472a;">Existing Categories</h3>
+                        <?php if (empty($categories)): ?>
+                            <p style="color: #999;">No categories have been added.</p>
+                        <?php else: ?>
+                        <table class="data-table">
+                            <thead><tr><th>Category</th><th>Products</th><th>Action</th></tr></thead>
+                            <tbody>
+                                <?php foreach ($categories as $category): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($category['category_name']) ?></td>
+                                    <td><?= (int)$category['product_count'] ?></td>
+                                    <td>
+                                        <form method="POST" onsubmit="return confirm('Delete this category? Categories assigned to products cannot be deleted.');">
+                                            <input type="hidden" name="category_id" value="<?= (int)$category['category_id'] ?>">
+                                            <button type="submit" name="delete_category" class="btn-delete" aria-label="Delete <?= htmlspecialchars($category['category_name']) ?> category"><i class="fas fa-trash"></i> Delete</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                        <?php endif; ?>
                     </div>
                 </div>
                 

@@ -78,6 +78,13 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         .pos-start-container p { color: #666; font-size: 18px; margin-bottom: 40px; }
         .btn-start-pos { padding: 20px 60px; background: linear-gradient(135deg, #1a472a 0%, #2d5a27 100%); color: white; border: none; border-radius: 15px; font-size: 20px; font-weight: 700; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; gap: 15px; text-decoration: none; }
         .btn-start-pos:hover { transform: translateY(-5px); box-shadow: 0 15px 40px rgba(26, 71, 42, 0.4); }
+        .staff-dashboard { margin-bottom: 25px; }
+        .staff-dashboard .stat-card { min-width: 0; }
+        .staff-dashboard .stat-info p { overflow-wrap: anywhere; }
+        .staff-insight-item { display: flex; justify-content: space-between; gap: 16px; padding: 13px 0; border-bottom: 1px solid #f0f0f0; }
+        .staff-insight-item:last-child { border-bottom: 0; }
+        .staff-insight-item strong { color: #1a472a; }
+        .staff-report-link { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; padding: 10px 14px; border-radius: 8px; color: white; background: #1a472a; text-decoration: none; font-weight: 600; }
         
         @media (max-width: 1200px) { .charts-grid { grid-template-columns: 1fr; } }
         @media (max-width: 992px) { .sidebar { width: 70px; } .sidebar-brand span, .sidebar-nav a span { display: none; } .sidebar-nav a i { margin-right: 0; font-size: 22px; } .main-wrapper { margin-left: 70px; } }
@@ -113,11 +120,9 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             <a href="receipt.php" class="<?= $currentPage == 'receipt.php' ? 'active' : '' ?>">
                 <i class="fas fa-receipt"></i> <span>Receipts</span>
             </a>
-            <?php if (isAdmin()): ?>
             <a href="revenue_reports.php" class="<?= $currentPage == 'revenue_reports.php' ? 'active' : '' ?>">
-                <i class="fas fa-chart-line"></i> <span>Revenue Reports</span>
+                <i class="fas fa-chart-line"></i> <span><?= isAdmin() ? 'Revenue Reports' : 'Daily Sales Report' ?></span>
             </a>
-            <?php endif; ?>
             <a href="logout.php" class="logout-link">
                 <i class="fas fa-sign-out-alt"></i> <span>Logout</span>
             </a>
@@ -254,12 +259,91 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         </script>
         
         <?php else: ?>
-        <div class="pos-start-container">
-            <i class="fas fa-cash-register pos-start-icon"></i>
-            <h1>Welcome, <?= htmlspecialchars($fullName) ?>!</h1>
-            <p>Ready to take orders? Click below to start the POS System.</p>
-            <a href="pos.php" class="btn-start-pos"><i class="fas fa-play"></i> Start POS System</a>
+        <div class="staff-dashboard">
+            <div class="dashboard-header">
+                <div class="header-left">
+                    <h1><i class="fas fa-sun"></i> Today's Sales Insights</h1>
+                    <span class="date-display">Daily performance from completed sales</span>
+                </div>
+                <a href="revenue_reports.php" class="staff-report-link"><i class="fas fa-chart-line"></i> View Daily Report</a>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #1a472a;"><i class="fas fa-receipt"></i></div>
+                    <div class="stat-info"><h3>Completed Sales Today</h3><p id="staff-sales-today">0</p></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #ffd700; color: #1a1a1a;"><i class="fas fa-money-bill-wave"></i></div>
+                    <div class="stat-info"><h3>Revenue Today</h3><p id="staff-revenue-today">₱0.00</p></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #4a7c4a;"><i class="fas fa-star"></i></div>
+                    <div class="stat-info"><h3>Best Seller Today</h3><p id="staff-best-seller" style="font-size: 18px;">No sales yet</p></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #2d5a27;"><i class="fas fa-calculator"></i></div>
+                    <div class="stat-info"><h3>Average Sale Today</h3><p id="staff-average-sale">₱0.00</p></div>
+                </div>
+            </div>
+            <div class="bottom-grid">
+                <div class="panel">
+                    <h3><i class="fas fa-chart-column"></i> Top Products Today</h3>
+                    <div id="staff-top-products"><p style="color: #999;">Loading today's sales insights...</p></div>
+                </div>
+                <div class="panel">
+                    <h3><i class="fas fa-cash-register"></i> Ready for the next order?</h3>
+                    <p style="color: #666; line-height: 1.6;">Review today's completed sales or start a new order from the POS.</p>
+                    <a href="pos.php" class="staff-report-link"><i class="fas fa-play"></i> Start POS System</a>
+                </div>
+            </div>
         </div>
+        <script>
+        async function loadStaffInsights() {
+            const productsContainer = document.getElementById('staff-top-products');
+            try {
+                const response = await fetch('api/dashboard.php?action=stats');
+                if (!response.ok) {
+                    throw new Error(`Dashboard request failed (${response.status})`);
+                }
+                const data = await response.json();
+                const bestSeller = data.best_seller_today;
+                document.getElementById('staff-sales-today').textContent = data.sales_today;
+                document.getElementById('staff-revenue-today').textContent = '₱' + Number(data.revenue_today).toLocaleString('en-US', {minimumFractionDigits: 2});
+                document.getElementById('staff-best-seller').textContent = bestSeller ? `${bestSeller.product_name} (${bestSeller.total_qty})` : 'No sales yet';
+                document.getElementById('staff-average-sale').textContent = '₱' + (data.sales_today > 0 ? Number(data.revenue_today / data.sales_today) : 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+
+                productsContainer.replaceChildren();
+                if (data.top_items_today.length === 0) {
+                    const empty = document.createElement('p');
+                    empty.style.color = '#999';
+                    empty.textContent = 'No completed sales yet today.';
+                    productsContainer.appendChild(empty);
+                    return;
+                }
+
+                const total = document.createElement('p');
+                total.style.cssText = 'color:#666; font-size:13px; margin-bottom:8px;';
+                total.textContent = `${data.items_sold_today} items sold today`;
+                productsContainer.appendChild(total);
+                data.top_items_today.forEach((item, index) => {
+                    const row = document.createElement('div');
+                    row.className = 'staff-insight-item';
+                    const product = document.createElement('span');
+                    product.textContent = `${index + 1}. ${item.product_name}`;
+                    const quantity = document.createElement('strong');
+                    quantity.textContent = `${item.total_qty} sold`;
+                    row.append(product, quantity);
+                    productsContainer.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error loading staff insights:', error);
+                productsContainer.textContent = 'Unable to load today’s sales insights. Please refresh the page.';
+            }
+        }
+
+        loadStaffInsights();
+        setInterval(loadStaffInsights, 60000);
+        </script>
         <?php endif; ?>
     </div>
 </body>

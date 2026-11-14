@@ -59,11 +59,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_ingredient'])) {
     if (!isAdmin()) { $message = 'Only admins can edit recipes'; $messageType = 'error'; } 
     else {
         $productId = intval($_POST['product_id']); $itemId = intval($_POST['inventory_item_id']); $qtyUsed = floatval($_POST['quantity_used']); $unit = trim($_POST['unit']);
-        if ($productId <= 0 || $itemId <= 0 || $qtyUsed <= 0) { $message = 'Please fill in all fields correctly'; $messageType = 'error'; } 
+        if ($productId <= 0 || $itemId <= 0 || !is_finite($qtyUsed) || $qtyUsed <= 0 || $unit === '') { $message = 'Please fill in all fields correctly'; $messageType = 'error'; }
         else {
-            $stmt = $pdo->prepare("INSERT INTO product_ingredient (product_id, inventory_item_id, quantity_used, unit) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$productId, $itemId, $qtyUsed, $unit]);
-            $message = 'Recipe ingredient added!'; $messageType = 'success';
+            $stmt = $pdo->prepare("SELECT unit FROM inventory_item WHERE inventory_item_id = ?");
+            $stmt->execute([$itemId]);
+            $inventoryUnit = $stmt->fetchColumn();
+            if ($inventoryUnit === false) {
+                $message = 'The selected inventory item could not be found';
+                $messageType = 'error';
+            } else {
+                try {
+                    convertInventoryQuantity($qtyUsed, $unit, $inventoryUnit);
+                    $stmt = $pdo->prepare("INSERT INTO product_ingredient (product_id, inventory_item_id, quantity_used, unit) VALUES (?, ?, ?, ?)");
+                    $stmt->execute([$productId, $itemId, $qtyUsed, $unit]);
+                    $message = 'Recipe ingredient added!'; $messageType = 'success';
+                } catch (InvalidArgumentException $e) {
+                    $message = $e->getMessage();
+                    $messageType = 'error';
+                }
+            }
         }
     }
 }
@@ -71,6 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_ingredient'])) {
 if (isset($_GET['delete_item']) && isAdmin()) { $stmt = $pdo->prepare("DELETE FROM inventory_item WHERE inventory_item_id = ?"); $stmt->execute([intval($_GET['delete_item'])]); header('Location: inventory.php?deleted=item'); exit; }
 if (isset($_GET['delete_ingredient']) && isAdmin()) { $stmt = $pdo->prepare("DELETE FROM product_ingredient WHERE product_ingredient_id = ?"); $stmt->execute([intval($_GET['delete_ingredient'])]); header('Location: inventory.php?deleted=ingredient'); exit; }
 
+$inventoryUnitDefinitions = getInventoryUnitDefinitions();
 $inventoryItems = $pdo->query("SELECT * FROM inventory_item ORDER BY item_name")->fetchAll();
 $products = $pdo->query("SELECT p.product_id, p.product_name, p.emoji, c.category_name FROM product p LEFT JOIN category c ON p.category_id = c.category_id ORDER BY c.category_name, p.product_name")->fetchAll();
 $recipeStmt = $pdo->query("SELECT pi.product_ingredient_id, pi.product_id, pi.inventory_item_id, pi.quantity_used, pi.unit, p.product_name, ii.item_name, ii.current_stock FROM product_ingredient pi JOIN product p ON pi.product_id = p.product_id JOIN inventory_item ii ON pi.inventory_item_id = ii.inventory_item_id ORDER BY p.product_name, ii.item_name");
@@ -249,9 +264,9 @@ $stockFilteredItems = array_values(array_filter($inventoryItems, static function
                         <div class="form-group"><label>Item Name *</label><input type="text" name="item_name" placeholder="e.g., Milk" required></div>
                         <div class="form-row">
                             <div class="form-group"><label>Unit *</label><input type="text" name="unit" placeholder="kg, liter" required></div>
-                            <div class="form-group"><label>Initial Stock</label><input type="number" name="current_stock" step="0.01" min="0" value="0"></div>
+                            <div class="form-group"><label>Initial Stock</label><input type="number" name="current_stock" step="0.00000001" min="0" value="0"></div>
                         </div>
-                        <div class="form-group"><label>Reorder Level</label><input type="number" name="reorder_level" step="0.01" min="0" value="10"></div>
+                        <div class="form-group"><label>Reorder Level</label><input type="number" name="reorder_level" step="0.00000001" min="0" value="10"></div>
                         <button type="submit" name="add_item" class="btn-submit"><i class="fas fa-plus"></i> Add Item</button>
                     </form>
                 </div>
@@ -278,13 +293,13 @@ $stockFilteredItems = array_values(array_filter($inventoryItems, static function
                             <?php foreach ($stockFilteredItems as $item): ?>
                             <tr>
                                 <td><strong><?= htmlspecialchars($item['item_name']) ?></strong></td>
-                                <td><strong><?= number_format($item['current_stock'], 2) ?></strong> <span style="color: #999; font-size: 12px;"><?= htmlspecialchars($item['unit']) ?></span><div style="font-size: 11px; color: #999;">Min: <?= number_format($item['reorder_level'], 2) ?></div></td>
+                                <td><strong><?= formatInventoryQuantity($item['current_stock']) ?></strong> <span style="color: #999; font-size: 12px;"><?= htmlspecialchars($item['unit']) ?></span><div style="font-size: 11px; color: #999;">Min: <?= formatInventoryQuantity($item['reorder_level']) ?></div></td>
                                 <td><span class="stock-badge <?= str_replace(' ', '-', $item['status']) ?>"><?= $item['status'] ?></span></td>
                                 <td>
                                     <form method="POST" class="inline-form">
                                         <input type="hidden" name="item_id" value="<?= $item['inventory_item_id'] ?>">
                                         <select name="transaction_type"><option value="Add">Add</option><option value="Deduct">Deduct</option></select>
-                                        <input type="number" name="quantity" step="0.01" min="0.01" placeholder="Qty" required>
+                                        <input type="number" name="quantity" step="0.00000001" min="0.00000001" placeholder="Qty" required>
                                         <input type="hidden" name="remarks" value="">
                                         <button type="submit" name="adjust_stock" class="btn-save"><i class="fas fa-check"></i></button>
                                     </form>
@@ -306,11 +321,18 @@ $stockFilteredItems = array_values(array_filter($inventoryItems, static function
                     <h2><i class="fas fa-plus"></i> Add Ingredient to Product</h2>
                     <form method="POST">
                         <div class="form-group"><label>Product *</label><select name="product_id" required><option value="">-- Select product --</option><?php foreach ($products as $p): ?><option value="<?= $p['product_id'] ?>"><?= $p['emoji'] ?> <?= htmlspecialchars($p['product_name']) ?></option><?php endforeach; ?></select></div>
-                        <div class="form-group"><label>Ingredient *</label><select name="inventory_item_id" required><option value="">-- Select ingredient --</option><?php foreach ($inventoryItems as $item): ?><option value="<?= $item['inventory_item_id'] ?>"><?= htmlspecialchars($item['item_name']) ?> (<?= number_format($item['current_stock'], 2) ?> <?= $item['unit'] ?>)</option><?php endforeach; ?></select></div>
+                        <div class="form-group"><label for="ingredient-item">Ingredient *</label><select id="ingredient-item" name="inventory_item_id" required><option value="">-- Select ingredient --</option><?php foreach ($inventoryItems as $item): ?><option value="<?= $item['inventory_item_id'] ?>" data-stock-unit="<?= htmlspecialchars($item['unit'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($item['item_name']) ?> (<?= formatInventoryQuantity($item['current_stock']) ?> <?= htmlspecialchars($item['unit']) ?>)</option><?php endforeach; ?></select></div>
                         <div class="form-row">
-                            <div class="form-group"><label>Quantity Used *</label><input type="number" name="quantity_used" step="0.001" min="0.001" placeholder="0.5" required></div>
-                            <div class="form-group"><label>Unit *</label><input type="text" name="unit" placeholder="kg, liter" required></div>
+                            <div class="form-group"><label for="ingredient-quantity">Quantity Used *</label><input id="ingredient-quantity" type="number" name="quantity_used" step="0.00000001" min="0.00000001" placeholder="66.67" required></div>
+                            <div class="form-group"><label for="ingredient-unit">Unit *</label><input id="ingredient-unit" type="text" name="unit" list="measurement-units" placeholder="g, kg, ml" required></div>
                         </div>
+                        <datalist id="measurement-units">
+                            <option value="kg"><option value="g"><option value="mg">
+                            <option value="lb"><option value="oz">
+                            <option value="L"><option value="dL"><option value="mL">
+                            <option value="pcs">
+                        </datalist>
+                        <p id="ingredient-conversion" role="status" aria-live="polite" style="min-height: 20px; margin: -4px 0 14px; color: #666; font-size: 13px;">Select an ingredient and enter its recipe quantity to preview the stock deduction.</p>
                         <button type="submit" name="add_ingredient" class="btn-submit"><i class="fas fa-plus"></i> Add to Recipe</button>
                     </form>
                 </div>
@@ -325,7 +347,7 @@ $stockFilteredItems = array_values(array_filter($inventoryItems, static function
                             <div class="ingredients-list">
                                 <?php foreach ($data['ingredients'] as $ing): ?>
                                 <div class="ingredient-chip">
-                                    <span><?= htmlspecialchars($ing['item_name']) ?>: <?= number_format($ing['quantity_used'], 3) ?> <?= htmlspecialchars($ing['unit']) ?></span>
+                                    <span><?= htmlspecialchars($ing['item_name']) ?>: <?= formatInventoryQuantity($ing['quantity_used']) ?> <?= htmlspecialchars($ing['unit']) ?></span>
                                     <?php if (isAdmin()): ?><a href="?delete_ingredient=<?= $ing['product_ingredient_id'] ?>" class="remove" onclick="return confirm('Remove?')">×</a><?php endif; ?>
                                 </div>
                                 <?php endforeach; ?>
@@ -356,7 +378,7 @@ $stockFilteredItems = array_values(array_filter($inventoryItems, static function
                             <td><?= date('M d, Y h:i A', strtotime($t['transaction_date'])) ?></td>
                             <td><strong><?= htmlspecialchars($t['item_name']) ?></strong></td>
                             <td><span class="stock-badge <?= $t['transaction_type'] ?>"><?= $t['transaction_type'] ?></span></td>
-                            <td><?= number_format($t['quantity'], 2) ?> <span style="color: #999; font-size: 12px;"><?= htmlspecialchars($t['unit']) ?></span></td>
+                            <td><?= formatInventoryQuantity($t['quantity']) ?> <span style="color: #999; font-size: 12px;"><?= htmlspecialchars($t['unit']) ?></span></td>
                             <td><?= htmlspecialchars($t['staff_name'] ?? 'N/A') ?></td>
                             <td style="font-size: 12px; color: #666;"><?= htmlspecialchars($t['remarks'] ?? '-') ?></td>
                         </tr>
@@ -368,6 +390,55 @@ $stockFilteredItems = array_values(array_filter($inventoryItems, static function
         </div>
         
         <script>
+            const inventoryUnitDefinitions = <?= json_encode($inventoryUnitDefinitions, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
+            const ingredientItem = document.getElementById('ingredient-item');
+            const ingredientQuantity = document.getElementById('ingredient-quantity');
+            const ingredientUnit = document.getElementById('ingredient-unit');
+            const ingredientConversion = document.getElementById('ingredient-conversion');
+
+            function updateIngredientConversion() {
+                const selectedOption = ingredientItem.options[ingredientItem.selectedIndex];
+                const stockUnit = selectedOption ? selectedOption.dataset.stockUnit : '';
+                const quantity = Number(ingredientQuantity.value);
+                const enteredUnit = ingredientUnit.value.trim().toLowerCase();
+                const normalizedStockUnit = (stockUnit || '').trim().toLowerCase();
+                if (!stockUnit || !Number.isFinite(quantity) || quantity <= 0 || !enteredUnit) {
+                    ingredientConversion.textContent = 'Select an ingredient and enter its recipe quantity to preview the stock deduction.';
+                    ingredientConversion.style.color = '#666';
+                    return;
+                }
+
+                const enteredDefinition = Object.prototype.hasOwnProperty.call(inventoryUnitDefinitions, enteredUnit)
+                    ? inventoryUnitDefinitions[enteredUnit]
+                    : null;
+                const stockDefinition = Object.prototype.hasOwnProperty.call(inventoryUnitDefinitions, normalizedStockUnit)
+                    ? inventoryUnitDefinitions[normalizedStockUnit]
+                    : null;
+                if (enteredDefinition && stockDefinition && enteredDefinition.dimension === stockDefinition.dimension) {
+                    const stockQuantity = quantity * enteredDefinition.factor / stockDefinition.factor;
+                    if (stockQuantity < 0.000000005) {
+                        ingredientConversion.textContent = 'This quantity is too small to represent in the inventory unit.';
+                        ingredientConversion.style.color = '#dc3545';
+                    } else {
+                        ingredientConversion.textContent = `${quantity} ${ingredientUnit.value.trim()} per product = ${stockQuantity.toFixed(8).replace(/0+$/, '').replace(/\.$/, '')} ${stockUnit} deducted from stock.`;
+                        ingredientConversion.style.color = '#1a472a';
+                    }
+                } else if (!enteredDefinition && !stockDefinition && enteredUnit === normalizedStockUnit) {
+                    ingredientConversion.textContent = `${quantity} ${ingredientUnit.value.trim()} per product will be deducted from stock.`;
+                    ingredientConversion.style.color = '#1a472a';
+                } else {
+                    ingredientConversion.textContent = `Cannot convert ${ingredientUnit.value.trim()} to ${stockUnit}. Use compatible measurement units.`;
+                    ingredientConversion.style.color = '#dc3545';
+                }
+            }
+
+            if (ingredientItem && ingredientQuantity && ingredientUnit && ingredientConversion) {
+                [ingredientItem, ingredientQuantity, ingredientUnit].forEach(input => {
+                    input.addEventListener('input', updateIngredientConversion);
+                    input.addEventListener('change', updateIngredientConversion);
+                });
+            }
+
             function showTab(tab, btn) {
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                 document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));

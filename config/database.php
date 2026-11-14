@@ -54,6 +54,100 @@ function requireAdmin() {
 // INVENTORY HELPERS
 // ============================================
 
+function getInventoryUnitDefinitions() {
+    $massUnits = [
+        'kg' => 1000,
+        'kilogram' => 1000,
+        'kilograms' => 1000,
+        'g' => 1,
+        'gram' => 1,
+        'grams' => 1,
+        'mg' => 0.001,
+        'milligram' => 0.001,
+        'milligrams' => 0.001,
+        'lb' => 453.59237,
+        'lbs' => 453.59237,
+        'pound' => 453.59237,
+        'pounds' => 453.59237,
+        'oz' => 28.349523125,
+        'ounce' => 28.349523125,
+        'ounces' => 28.349523125
+    ];
+    $volumeUnits = [
+        'l' => 1000,
+        'liter' => 1000,
+        'liters' => 1000,
+        'litre' => 1000,
+        'litres' => 1000,
+        'dl' => 100,
+        'deciliter' => 100,
+        'deciliters' => 100,
+        'decilitre' => 100,
+        'decilitres' => 100,
+        'cl' => 10,
+        'centiliter' => 10,
+        'centiliters' => 10,
+        'centilitre' => 10,
+        'centilitres' => 10,
+        'ml' => 1,
+        'milliliter' => 1,
+        'milliliters' => 1,
+        'millilitre' => 1,
+        'millilitres' => 1
+    ];
+    $countUnits = [
+        'pc' => 1,
+        'pcs' => 1,
+        'piece' => 1,
+        'pieces' => 1,
+        'ea' => 1,
+        'each' => 1,
+        'unit' => 1,
+        'units' => 1
+    ];
+    $definitions = [];
+    foreach ($massUnits as $unit => $factor) {
+        $definitions[$unit] = ['dimension' => 'mass', 'factor' => $factor];
+    }
+    foreach ($volumeUnits as $unit => $factor) {
+        $definitions[$unit] = ['dimension' => 'volume', 'factor' => $factor];
+    }
+    foreach ($countUnits as $unit => $factor) {
+        $definitions[$unit] = ['dimension' => 'count', 'factor' => $factor];
+    }
+    return $definitions;
+}
+
+function convertInventoryQuantity($quantity, $fromUnit, $toUnit) {
+    $quantity = (float)$quantity;
+    $fromUnit = strtolower(trim((string)$fromUnit));
+    $toUnit = strtolower(trim((string)$toUnit));
+    if (!is_finite($quantity) || $quantity < 0 || $fromUnit === '' || $toUnit === '') {
+        throw new InvalidArgumentException('Enter a valid quantity and measurement unit.');
+    }
+
+    $definitions = getInventoryUnitDefinitions();
+    $fromDefinition = $definitions[$fromUnit] ?? null;
+    $toDefinition = $definitions[$toUnit] ?? null;
+    if ($fromDefinition === null && $toDefinition === null && $fromUnit === $toUnit) {
+        return $quantity;
+    }
+    if ($fromDefinition === null || $toDefinition === null || $fromDefinition['dimension'] !== $toDefinition['dimension']) {
+        throw new InvalidArgumentException("Cannot convert $fromUnit to $toUnit. Use compatible measurement units.");
+    }
+
+    $convertedQuantity = round($quantity * $fromDefinition['factor'] / $toDefinition['factor'], 8);
+    if ($quantity > 0 && $convertedQuantity <= 0) {
+        throw new InvalidArgumentException('The quantity is too small to represent in the inventory unit.');
+    }
+
+    return $convertedQuantity;
+}
+
+function formatInventoryQuantity($quantity) {
+    return rtrim(rtrim(number_format((float)$quantity, 8, '.', ','), '0'), '.');
+}
+
 /**
  * Update inventory item status based on current stock vs reorder level
  */
@@ -75,9 +169,10 @@ function updateInventoryStatus($pdo, $inventoryItemId) {
  */
 function deductIngredientsFromInventory($pdo, $productId, $quantitySold, $staffId) {
     $stmt = $pdo->prepare("
-        SELECT inventory_item_id, quantity_used, unit 
-        FROM product_ingredient 
-        WHERE product_id = ?
+        SELECT pi.inventory_item_id, pi.quantity_used, pi.unit, ii.unit AS inventory_unit
+        FROM product_ingredient pi
+        JOIN inventory_item ii ON ii.inventory_item_id = pi.inventory_item_id
+        WHERE pi.product_id = ?
     ");
     $stmt->execute([$productId]);
     $ingredients = $stmt->fetchAll();
@@ -87,7 +182,8 @@ function deductIngredientsFromInventory($pdo, $productId, $quantitySold, $staffI
     }
     
     foreach ($ingredients as $ing) {
-        $totalUsed = $ing['quantity_used'] * $quantitySold;
+        $quantityPerProduct = convertInventoryQuantity($ing['quantity_used'], $ing['unit'], $ing['inventory_unit']);
+        $totalUsed = round($quantityPerProduct * $quantitySold, 8);
         
         $stmt = $pdo->prepare("
             UPDATE inventory_item 
@@ -154,15 +250,17 @@ function voidSale($pdo, $saleId, $reason, $staffId) {
         
         foreach ($items as $item) {
             $stmt2 = $pdo->prepare("
-                SELECT inventory_item_id, quantity_used 
-                FROM product_ingredient 
-                WHERE product_id = ?
+                SELECT pi.inventory_item_id, pi.quantity_used, pi.unit, ii.unit AS inventory_unit
+                FROM product_ingredient pi
+                JOIN inventory_item ii ON ii.inventory_item_id = pi.inventory_item_id
+                WHERE pi.product_id = ?
             ");
             $stmt2->execute([$item['product_id']]);
             $ingredients = $stmt2->fetchAll();
             
             foreach ($ingredients as $ing) {
-                $restoreQty = $ing['quantity_used'] * $item['quantity'];
+                $quantityPerProduct = convertInventoryQuantity($ing['quantity_used'], $ing['unit'], $ing['inventory_unit']);
+                $restoreQty = round($quantityPerProduct * $item['quantity'], 8);
                 
                 $stmt3 = $pdo->prepare("
                     UPDATE inventory_item 

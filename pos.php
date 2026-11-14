@@ -380,7 +380,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                         <i class="fas fa-user-circle"></i> Cashier: <?= htmlspecialchars($_SESSION['full_name']) ?>
                     </div>
                     <div style="display: flex; align-items: center; gap: 15px; justify-content: flex-end;">
-                        <span style="color: #666; font-size: 13px;"><?= date('M d, Y h:i A') ?></span>
+                        <span id="pos-current-time" aria-live="off" style="color: #666; font-size: 13px;"><?= date('M d, Y h:i:s A') ?></span>
                     </div>
                 </div>
             </div>
@@ -433,6 +433,21 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     
     <?php require 'includes/shop_about.php'; ?>
     <script>
+        const posCurrentTime = document.getElementById('pos-current-time');
+        function updatePosCurrentTime() {
+            posCurrentTime.textContent = new Date().toLocaleString('en-US', {
+                month: 'short',
+                day: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            });
+        }
+        updatePosCurrentTime();
+        setInterval(updatePosCurrentTime, 1000);
+
         let products = [];
         let categories = new Set();
         let cart = [];

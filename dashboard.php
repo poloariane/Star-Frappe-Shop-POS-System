@@ -135,7 +135,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         <header class="dashboard-header">
             <div class="header-left">
                 <h1><i class="fas fa-chart-pie"></i> Dashboard</h1>
-                <span class="date-display" id="current-date"></span>
+                <span class="date-display" id="current-date" aria-live="off"></span>
             </div>
             <div class="header-right">
                 <span class="role-badge <?= $role ?>"><?= htmlspecialchars($role) ?></span>
@@ -146,6 +146,23 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 </a>
             </div>
         </header>
+
+        <script>
+        function updateDashboardClock() {
+            document.getElementById('current-date').textContent = new Date().toLocaleString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            });
+        }
+        updateDashboardClock();
+        setInterval(updateDashboardClock, 1000);
+        </script>
 
         <?php if (isAdmin()): ?>
         <div class="stats-grid">
@@ -209,7 +226,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         </div>
 
         <script>
-        document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
         let salesChart, topItemsChart;
 
         async function loadDashboard() {

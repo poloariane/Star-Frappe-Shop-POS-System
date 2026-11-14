@@ -1,3 +1,4 @@
+<?php $shopOwnerName = getShopOwnerName($pdo); ?>
 <style>
     .shop-logo-trigger { color: inherit; text-decoration: none; cursor: pointer; }
     .shop-logo-trigger:focus-visible { outline: 3px solid #ffd700; outline-offset: 4px; border-radius: 6px; }
@@ -53,6 +54,8 @@
     .shop-about-meta i { margin-right: 6px; color: #1a472a; }
     .shop-about-social { display: inline-flex; align-items: center; gap: 9px; margin-top: 24px; padding: 12px 17px; border-radius: 9px; background: #1a472a; color: #fff; text-decoration: none; font-weight: 700; }
     .shop-about-social:hover { background: #2d5a27; }
+    .alert { transition: opacity .35s ease, transform .35s ease; }
+    .alert.is-dismissed { opacity: 0; transform: translateY(-6px); pointer-events: none; }
     @media (max-width: 768px) {
         .shop-about-overlay { align-items: flex-start; padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)); }
         .shop-about-dialog { width: 100%; min-height: 0; max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); margin: auto 0; padding: 24px 20px; border-radius: 16px; -webkit-overflow-scrolling: touch; }
@@ -94,6 +97,7 @@
         <p class="shop-about-description">Your affordable tambayan in Catarman. Serving frappe, milk tea, iced coffee, and waffles for study sessions, barkada hangouts, and everyday cravings.</p>
         <div class="shop-about-meta">
             <span><i class="fas fa-location-dot"></i>135 Asinas Avenue, UEP 1, Catarman, Northern Samar</span>
+            <span><i class="fas fa-user-tie"></i>Shop owner: <?= htmlspecialchars($shopOwnerName, ENT_QUOTES, 'UTF-8') ?></span>
             <span><i class="fas fa-users"></i>189 followers · 1 following</span>
         </div>
         <a class="shop-about-social" href="https://www.facebook.com/profile.php?id=61573377305822" target="_blank" rel="noopener noreferrer">
@@ -103,6 +107,15 @@
 </div>
 <script>
     (function () {
+        document.querySelectorAll('.alert').forEach(function (alert) {
+            window.setTimeout(function () {
+                alert.classList.add('is-dismissed');
+                window.setTimeout(function () {
+                    alert.remove();
+                }, 350);
+            }, 60000);
+        });
+
         const dialog = document.getElementById('shop-about');
         if (!dialog) return;
         const closeButton = dialog.querySelector('.shop-about-close');

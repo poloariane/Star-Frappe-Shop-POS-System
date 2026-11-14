@@ -83,7 +83,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         .report-export-row { width: 100%; }
         .btn-export { background: #2d5a27; color: white; border: none; padding: 12px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
         .btn-export:hover { background: #1a472a; }
-        .sales-summary { grid-template-columns: repeat(2, minmax(180px, 280px)); }
+        .sales-summary { grid-template-columns: repeat(3, minmax(180px, 280px)); }
         .report-location { margin-top: 6px; color: #777 !important; font-size: 13px !important; }
         .report-modal { display: none; position: fixed; inset: 0; z-index: 3000; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; overscroll-behavior: contain; background: rgba(0,0,0,.5); }
         .report-modal.show { display: flex; }
@@ -218,6 +218,12 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <div class="label"><i class="fas fa-money-bill-wave"></i> Gross Revenue</div>
                 <div class="value" id="val-gross-revenue">₱0.00</div>
             </div>
+            <?php if (!$isAdmin): ?>
+            <div class="stat-card">
+                <div class="label"><i class="fas fa-chart-pie"></i> Net Revenue</div>
+                <div class="value" id="val-net">₱0.00</div>
+            </div>
+            <?php endif; ?>
             <?php if ($isAdmin): ?>
             <div class="stat-card">
                 <div class="label"><i class="fas fa-receipt"></i> Total Expenses</div>
@@ -317,6 +323,9 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
                 document.getElementById('val-shop-sales').textContent = data.summary.shop_sales;
                 document.getElementById('val-gross-revenue').textContent = '₱' + parseFloat(data.summary.gross_revenue).toLocaleString('en-US', {minimumFractionDigits: 2});
+                if (!isAdmin) {
+                    document.getElementById('val-net').textContent = '₱' + parseFloat(data.summary.revenue_after_expenses).toLocaleString('en-US', {minimumFractionDigits: 2});
+                }
 
                 if (isAdmin) {
                     document.getElementById('val-expenses').textContent = '₱' + parseFloat(data.summary.total_expenses).toLocaleString('en-US', {minimumFractionDigits: 2});

@@ -49,7 +49,7 @@ function createReportLogoJpeg() {
     return $jpeg;
 }
 
-function buildSalesPdf(array $sales, $periodLabel, $fromDate, $toDate, $logoJpeg) {
+function buildSalesPdf(array $sales, $periodLabel, $fromDate, $toDate, $ownerName, $logoJpeg) {
     $pages = array_chunk($sales, 34);
     if (empty($pages)) {
         $pages = [[]];
@@ -74,6 +74,7 @@ function buildSalesPdf(array $sales, $periodLabel, $fromDate, $toDate, $logoJpeg
         $commands .= pdfTextAt('STAR FRAPPE SHOP', 130, 800, 22, 'F2');
         $commands .= pdfTextAt('135 Asinas Avenue, UEP 1, Catarman, Northern Samar', 130, 780, 10);
         $commands .= pdfTextAt('Generated: ' . date('F j, Y g:i A'), 130, 762, 9);
+        $commands .= pdfTextAt('Shop Owner: ' . $ownerName, 130, 748, 9);
         $commands .= "0.12 0.28 0.16 RG\n1.5 w\n48 740 m\n564 740 l\nS\n";
         $commands .= pdfTextAt($periodLabel . ' Sales Report', 48, 716, 17, 'F2');
         $commands .= pdfTextAt('Report period: ' . $fromDate . ' to ' . $toDate, 48, 698, 10);
@@ -164,7 +165,7 @@ function exportSalesPdf($pdo) {
     $stmt->execute([$fromDate, $toDate]);
     $sales = $stmt->fetchAll();
 
-    $pdf = buildSalesPdf($sales, $label, $fromDate, $toDate, createReportLogoJpeg());
+    $pdf = buildSalesPdf($sales, $label, $fromDate, $toDate, getShopOwnerName($pdo), createReportLogoJpeg());
     header('Content-Type: application/pdf');
     header('Content-Disposition: attachment; filename="sales-' . $period . '-' . $fromDate . '.pdf"');
     header('Content-Length: ' . strlen($pdf));
@@ -200,6 +201,14 @@ if (isStaff()) {
     $salesData = $stmt->fetch();
 
     $stmt = $pdo->prepare("
+        SELECT COALESCE(SUM(amount), 0) AS total_expenses
+        FROM expense
+        WHERE DATE(expense_date) = ?
+    ");
+    $stmt->execute([$selectedDate]);
+    $totalExpenses = (float)$stmt->fetch()['total_expenses'];
+
+    $stmt = $pdo->prepare("
         SELECT s.sale_id, s.sale_date, s.total_amount, r.receipt_number
         FROM sale s
         LEFT JOIN receipt r ON s.sale_id = r.sale_id
@@ -211,7 +220,8 @@ if (isStaff()) {
     echo json_encode([
         'summary' => [
             'shop_sales' => (int)$salesData['total_sales'],
-            'gross_revenue' => (float)$salesData['gross_revenue']
+            'gross_revenue' => (float)$salesData['gross_revenue'],
+            'revenue_after_expenses' => (float)$salesData['gross_revenue'] - $totalExpenses
         ],
         'sales_list' => $stmt->fetchAll()
     ]);

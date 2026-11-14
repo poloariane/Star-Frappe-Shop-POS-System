@@ -94,6 +94,7 @@ $totalRevenue = array_sum(array_map(function ($sale) {
                 <h1>STAR FRAPPE SHOP</h1>
                 <p>135 Asinas Avenue, UEP 1, Catarman, Northern Samar</p>
                 <p>Official Sales Report</p>
+                <p>Shop Owner: <?= htmlspecialchars(getShopOwnerName($pdo), ENT_QUOTES, 'UTF-8') ?></p>
             </div>
         </header>
         <section class="report-heading">

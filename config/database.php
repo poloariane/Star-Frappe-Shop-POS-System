@@ -29,6 +29,12 @@ function isStaff() {
     return isset($_SESSION['role']) && $_SESSION['role'] === 'Staff';
 }
 
+function getShopOwnerName($pdo) {
+    $stmt = $pdo->query("SELECT name FROM staff WHERE role = 'Admin' ORDER BY staff_id ASC LIMIT 1");
+    $ownerName = $stmt->fetchColumn();
+    return $ownerName !== false ? $ownerName : 'Owner not set';
+}
+
 function requireLogin() {
     if (!isLoggedIn()) {
         header('Location: login.php');

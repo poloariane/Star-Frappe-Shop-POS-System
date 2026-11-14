@@ -5,6 +5,21 @@ requireLogin();
 $message = ''; $messageType = '';
 $currentPage = basename($_SERVER['PHP_SELF']);
 
+$filterFrom = $_GET['from'] ?? date('Y-m-01');
+$filterTo = $_GET['to'] ?? date('Y-m-d');
+foreach ([$filterFrom, $filterTo] as $filterDate) {
+    $dateParts = explode('-', (string)$filterDate);
+    if (count($dateParts) !== 3 || !checkdate((int)$dateParts[1], (int)$dateParts[2], (int)$dateParts[0]) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$filterDate)) {
+        http_response_code(400);
+        exit('Invalid expense date filter');
+    }
+}
+if ($filterFrom > $filterTo) {
+    http_response_code(400);
+    exit('The start date must be on or before the end date');
+}
+$expenseFilterQuery = http_build_query(['from' => $filterFrom, 'to' => $filterTo]);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_expense'])) {
     $expenseName = trim($_POST['expense_name']); $amount = floatval($_POST['amount']); $expenseDate = $_POST['expense_date']; $description = trim($_POST['description']);
     if (empty($expenseName) || $amount <= 0 || empty($expenseDate)) { $message = 'Please fill in all required fields correctly'; $messageType = 'error'; } 
@@ -25,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_expense'])) {
     }
 }
 
-if (isset($_GET['delete'])) { $stmt = $pdo->prepare("DELETE FROM expense WHERE expense_id = ?"); $stmt->execute([intval($_GET['delete'])]); header('Location: expenses.php?deleted=1'); exit; }
+if (isset($_GET['delete'])) { $stmt = $pdo->prepare("DELETE FROM expense WHERE expense_id = ?"); $stmt->execute([intval($_GET['delete'])]); header('Location: expenses.php?' . $expenseFilterQuery . '&deleted=1#expense-list'); exit; }
 
 $editExpense = null;
 if (isset($_GET['edit'])) { $stmt = $pdo->prepare("SELECT * FROM expense WHERE expense_id = ?"); $stmt->execute([intval($_GET['edit'])]); $editExpense = $stmt->fetch(); }
@@ -34,24 +49,15 @@ $totalThisMonth = $pdo->query("SELECT COALESCE(SUM(amount), 0) as total FROM exp
 $totalAllTime = $pdo->query("SELECT COALESCE(SUM(amount), 0) as total FROM expense")->fetch()['total'];
 $totalThisYear = $pdo->query("SELECT COALESCE(SUM(amount), 0) as total FROM expense WHERE YEAR(expense_date) = YEAR(CURDATE())")->fetch()['total'];
 
-$filterFrom = $_GET['from'] ?? date('Y-m-01');
-$filterTo = $_GET['to'] ?? date('Y-m-d');
-foreach ([$filterFrom, $filterTo] as $filterDate) {
-    $dateParts = explode('-', (string)$filterDate);
-    if (count($dateParts) !== 3 || !checkdate((int)$dateParts[1], (int)$dateParts[2], (int)$dateParts[0]) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$filterDate)) {
-        http_response_code(400);
-        exit('Invalid expense date filter');
-    }
-}
-if ($filterFrom > $filterTo) {
-    http_response_code(400);
-    exit('The start date must be on or before the end date');
-}
-
 $stmt = $pdo->prepare("SELECT e.*, s.name as staff_name FROM expense e LEFT JOIN staff s ON e.staff_id = s.staff_id WHERE DATE(e.expense_date) BETWEEN ? AND ? ORDER BY e.expense_date DESC, e.expense_id DESC");
 $stmt->execute([$filterFrom, $filterTo]);
 $expenses = $stmt->fetchAll();
 $today = date('Y-m-d');
+$expenseFormParams = ['from' => $filterFrom, 'to' => $filterTo];
+if ($editExpense) {
+    $expenseFormParams['edit'] = (int)$editExpense['expense_id'];
+}
+$expenseFormAction = 'expenses.php?' . http_build_query($expenseFormParams) . '#expense-form';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -177,7 +183,7 @@ $today = date('Y-m-d');
                     <?= $editExpense ? 'Edit Expense' : 'Add New Expense' ?>
                     <?php if ($editExpense): ?><span class="edit-mode-badge">EDITING #<?= $editExpense['expense_id'] ?></span><?php endif; ?>
                 </h2>
-                <form method="POST">
+                <form id="expense-form" method="POST" action="<?= htmlspecialchars($expenseFormAction, ENT_QUOTES, 'UTF-8') ?>">
                     <?php if ($editExpense): ?><input type="hidden" name="expense_id" value="<?= $editExpense['expense_id'] ?>"><?php endif; ?>
                     <div class="form-group"><label>Expense Name *</label><input type="text" name="expense_name" placeholder="e.g., Electricity Bill" value="<?= htmlspecialchars($editExpense['expense_name'] ?? '') ?>" required></div>
                     <div class="form-group"><label>Amount (₱) *</label><input type="number" name="amount" step="0.01" min="0.01" placeholder="0.00" value="<?= $editExpense['amount'] ?? '' ?>" required></div>
@@ -192,7 +198,7 @@ $today = date('Y-m-d');
                 </form>
             </div>
             
-            <div class="card">
+            <div class="card" id="expense-list">
                 <div class="list-header">
                     <h2><i class="fas fa-list"></i> Expense Records (<?= count($expenses) ?>)</h2>
                     <form method="GET" class="filter-form">
@@ -216,8 +222,8 @@ $today = date('Y-m-d');
                                 <td class="amount-cell">₱<?= number_format($e['amount'], 2) ?></td>
                                 <td style="font-size: 12px; color: #666;"><?= htmlspecialchars($e['staff_name'] ?? 'N/A') ?></td>
                                 <td>
-                                    <a href="?edit=<?= $e['expense_id'] ?>" class="btn-action btn-edit"><i class="fas fa-edit"></i></a>
-                                    <?php if (isAdmin()): ?><a href="?delete=<?= $e['expense_id'] ?>" class="btn-action btn-delete" onclick="return confirm('Delete this expense?')"><i class="fas fa-trash"></i></a><?php endif; ?>
+                                    <a href="?edit=<?= $e['expense_id'] ?>&amp;<?= htmlspecialchars($expenseFilterQuery, ENT_QUOTES, 'UTF-8') ?>#expense-form" class="btn-action btn-edit"><i class="fas fa-edit"></i></a>
+                                    <?php if (isAdmin()): ?><a href="?delete=<?= $e['expense_id'] ?>&amp;<?= htmlspecialchars($expenseFilterQuery, ENT_QUOTES, 'UTF-8') ?>#expense-list" class="btn-action btn-delete" onclick="return confirm('Delete this expense?')"><i class="fas fa-trash"></i></a><?php endif; ?>
                                 </td>
                             </tr>
                             <?php endforeach; ?>

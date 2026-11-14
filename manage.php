@@ -163,15 +163,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_category'])) {
 if (isset($_GET['delete_staff'])) {
     $id = intval($_GET['delete_staff']);
     if ($id === $_SESSION['staff_id']) { $message = 'You cannot delete your own account'; $messageType = 'error'; } 
-    else { $stmt = $pdo->prepare("DELETE FROM staff WHERE staff_id = ?"); $stmt->execute([$id]); header('Location: manage.php?deleted=staff'); exit; }
+    else { $stmt = $pdo->prepare("DELETE FROM staff WHERE staff_id = ?"); $stmt->execute([$id]); header('Location: manage.php?deleted=staff#staff'); exit; }
 }
 
-if (isset($_GET['delete_product'])) { $stmt = $pdo->prepare("DELETE FROM product WHERE product_id = ?"); $stmt->execute([intval($_GET['delete_product'])]); header('Location: manage.php?deleted=product'); exit; }
+if (isset($_GET['delete_product'])) { $stmt = $pdo->prepare("DELETE FROM product WHERE product_id = ?"); $stmt->execute([intval($_GET['delete_product'])]); header('Location: manage.php?deleted=product#products'); exit; }
 
 if (isset($_GET['toggle_staff'])) {
     $id = intval($_GET['toggle_staff']);
     if ($id === $_SESSION['staff_id']) { $message = 'You cannot deactivate your own account'; $messageType = 'error'; } 
-    else { $stmt = $pdo->prepare("UPDATE staff SET status = IF(status = 'Active', 'Inactive', 'Active') WHERE staff_id = ?"); $stmt->execute([$id]); header('Location: manage.php'); exit; }
+    else { $stmt = $pdo->prepare("UPDATE staff SET status = IF(status = 'Active', 'Inactive', 'Active') WHERE staff_id = ?"); $stmt->execute([$id]); header('Location: manage.php#staff'); exit; }
 }
 
 if (isset($_GET['toggle_product'])) { $stmt = $pdo->prepare("UPDATE product SET status = IF(status = 'Available', 'Unavailable', 'Available') WHERE product_id = ?"); $stmt->execute([intval($_GET['toggle_product'])]); header('Location: manage.php#products'); exit; }
@@ -358,7 +358,7 @@ $categories = $pdo->query("SELECT c.category_id, c.category_name, COUNT(p.produc
             <div class="grid-2">
                 <div class="form-card">
                     <h2><i class="fas fa-user-plus"></i> Add New Staff</h2>
-                    <form method="POST">
+                    <form method="POST" action="manage.php#staff">
                         <div class="form-group"><label>Full Name *</label><input type="text" name="name" placeholder="Enter full name" required></div>
                         <div class="form-group"><label>Username *</label><input type="text" name="username" placeholder="Enter username" required></div>
                         <div class="form-group"><label>Password *</label><input type="password" name="password" placeholder="Enter password" required minlength="6"></div>
@@ -383,8 +383,8 @@ $categories = $pdo->query("SELECT c.category_id, c.category_name, COUNT(p.produc
                                 <td><span class="badge <?= $s['role'] ?>"><?= $s['role'] ?></span></td>
                                 <td><span class="badge <?= $s['status'] ?>"><?= $s['status'] ?></span></td>
                                 <td>
-                                    <a href="?toggle_staff=<?= $s['staff_id'] ?>" class="btn-toggle" onclick="return confirm('Toggle status?')"><i class="fas fa-power-off"></i></a>
-                                    <a href="?delete_staff=<?= $s['staff_id'] ?>" class="btn-delete" onclick="return confirm('Delete?')"><i class="fas fa-trash"></i></a>
+                                    <a href="?toggle_staff=<?= $s['staff_id'] ?>#staff" class="btn-toggle" onclick="return confirm('Toggle status?')"><i class="fas fa-power-off"></i></a>
+                                    <a href="?delete_staff=<?= $s['staff_id'] ?>#staff" class="btn-delete" onclick="return confirm('Delete?')"><i class="fas fa-trash"></i></a>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -400,7 +400,7 @@ $categories = $pdo->query("SELECT c.category_id, c.category_name, COUNT(p.produc
             <div class="grid-2">
                 <div class="form-card">
                     <h2><i class="fas fa-plus-circle"></i> Add New Product</h2>
-                    <form method="POST" enctype="multipart/form-data">
+                    <form method="POST" action="manage.php#products" enctype="multipart/form-data">
                         <div class="form-group"><label>Product Name *</label><input type="text" name="product_name" placeholder="Enter product name" required></div>
                         <div class="form-group"><label>Category *</label><select name="category_id" required><option value="">-- Select category --</option><?php foreach ($categories as $c): ?><option value="<?= $c['category_id'] ?>"><?= htmlspecialchars($c['category_name']) ?></option><?php endforeach; ?></select></div>
                         <div class="form-group"><label>Price (₱) *</label><input type="number" name="price" placeholder="0.00" step="0.01" min="0" required></div>
@@ -427,7 +427,7 @@ $categories = $pdo->query("SELECT c.category_id, c.category_name, COUNT(p.produc
                     
                     <div class="section-divider">
                         <h2><i class="fas fa-tag"></i> Add New Category</h2>
-                        <form method="POST">
+                        <form method="POST" action="manage.php#products">
                             <div class="form-group"><label>Category Name *</label><input type="text" name="category_name" placeholder="e.g., Cake" required></div>
                             <button type="submit" name="add_category" class="btn-submit"><i class="fas fa-plus"></i> Add Category</button>
                         </form>
@@ -443,7 +443,7 @@ $categories = $pdo->query("SELECT c.category_id, c.category_name, COUNT(p.produc
                                     <td><?= htmlspecialchars($category['category_name']) ?></td>
                                     <td><?= (int)$category['product_count'] ?></td>
                                     <td>
-                                        <form method="POST" onsubmit="return confirm('Delete this category? Categories assigned to products cannot be deleted.');">
+                                        <form method="POST" action="manage.php#products" onsubmit="return confirm('Delete this category? Categories assigned to products cannot be deleted.');">
                                             <input type="hidden" name="category_id" value="<?= (int)$category['category_id'] ?>">
                                             <button type="submit" name="delete_category" class="btn-delete" aria-label="Delete <?= htmlspecialchars($category['category_name']) ?> category"><i class="fas fa-trash"></i> Delete</button>
                                         </form>
@@ -487,7 +487,7 @@ $categories = $pdo->query("SELECT c.category_id, c.category_name, COUNT(p.produc
                                 <td><span class="badge <?= $p['status'] ?>"><?= $p['status'] ?></span></td>
                                 <td>
                                     <a href="?toggle_product=<?= $p['product_id'] ?>" class="btn-toggle" onclick="return confirm('Toggle availability?')"><i class="fas fa-power-off"></i></a>
-                                    <a href="?delete_product=<?= $p['product_id'] ?>" class="btn-delete" onclick="return confirm('Delete?')"><i class="fas fa-trash"></i></a>
+                                    <a href="?delete_product=<?= $p['product_id'] ?>#products" class="btn-delete" onclick="return confirm('Delete?')"><i class="fas fa-trash"></i></a>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -526,11 +526,10 @@ $categories = $pdo->query("SELECT c.category_id, c.category_name, COUNT(p.produc
                 btn.classList.add('active');
                 document.getElementById(tab + '-tab').classList.add('active');
             }
-            if (window.location.hash === '#products') {
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                document.querySelectorAll('.tab-btn')[1].classList.add('active');
-                document.getElementById('products-tab').classList.add('active');
+            if (window.location.hash === '#products' || window.location.hash === '#staff') {
+                const tab = window.location.hash.slice(1);
+                const tabIndex = tab === 'products' ? 1 : 0;
+                showTab(tab, document.querySelectorAll('.tab-btn')[tabIndex]);
             }
         </script>
     </div>

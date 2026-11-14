@@ -82,8 +82,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_ingredient'])) {
     }
 }
 
-if (isset($_GET['delete_item']) && isAdmin()) { $stmt = $pdo->prepare("DELETE FROM inventory_item WHERE inventory_item_id = ?"); $stmt->execute([intval($_GET['delete_item'])]); header('Location: inventory.php?deleted=item'); exit; }
-if (isset($_GET['delete_ingredient']) && isAdmin()) { $stmt = $pdo->prepare("DELETE FROM product_ingredient WHERE product_ingredient_id = ?"); $stmt->execute([intval($_GET['delete_ingredient'])]); header('Location: inventory.php?deleted=ingredient'); exit; }
+if (isset($_GET['delete_item']) && isAdmin()) { $stmt = $pdo->prepare("DELETE FROM inventory_item WHERE inventory_item_id = ?"); $stmt->execute([intval($_GET['delete_item'])]); header('Location: inventory.php?deleted=item#items-tab'); exit; }
+if (isset($_GET['delete_ingredient']) && isAdmin()) { $stmt = $pdo->prepare("DELETE FROM product_ingredient WHERE product_ingredient_id = ?"); $stmt->execute([intval($_GET['delete_ingredient'])]); header('Location: inventory.php?deleted=ingredient#recipes-tab'); exit; }
 
 $inventoryUnitDefinitions = getInventoryUnitDefinitions();
 $inventoryItems = $pdo->query("SELECT * FROM inventory_item ORDER BY item_name")->fetchAll();
@@ -260,7 +260,7 @@ $stockFilteredItems = array_values(array_filter($inventoryItems, static function
                 <?php if (isAdmin()): ?>
                 <div class="card">
                     <h2><i class="fas fa-plus-circle"></i> Add New Item</h2>
-                    <form method="POST">
+                    <form method="POST" action="inventory.php#items-tab">
                         <div class="form-group"><label>Item Name *</label><input type="text" name="item_name" placeholder="e.g., Milk" required></div>
                         <div class="form-row">
                             <div class="form-group"><label>Unit *</label><input type="text" name="unit" placeholder="kg, liter" required></div>
@@ -296,7 +296,7 @@ $stockFilteredItems = array_values(array_filter($inventoryItems, static function
                                 <td><strong><?= formatInventoryQuantity($item['current_stock']) ?></strong> <span style="color: #999; font-size: 12px;"><?= htmlspecialchars($item['unit']) ?></span><div style="font-size: 11px; color: #999;">Min: <?= formatInventoryQuantity($item['reorder_level']) ?></div></td>
                                 <td><span class="stock-badge <?= str_replace(' ', '-', $item['status']) ?>"><?= $item['status'] ?></span></td>
                                 <td>
-                                    <form method="POST" class="inline-form">
+                                    <form method="POST" action="inventory.php#items-tab" class="inline-form">
                                         <input type="hidden" name="item_id" value="<?= $item['inventory_item_id'] ?>">
                                         <select name="transaction_type"><option value="Add">Add</option><option value="Deduct">Deduct</option></select>
                                         <input type="number" name="quantity" step="0.00000001" min="0.00000001" placeholder="Qty" required>
@@ -304,7 +304,7 @@ $stockFilteredItems = array_values(array_filter($inventoryItems, static function
                                         <button type="submit" name="adjust_stock" class="btn-save"><i class="fas fa-check"></i></button>
                                     </form>
                                 </td>
-                                <?php if (isAdmin()): ?><td><a href="?delete_item=<?= $item['inventory_item_id'] ?>" class="btn-delete" onclick="return confirm('Delete?')"><i class="fas fa-trash"></i></a></td><?php endif; ?>
+                                <?php if (isAdmin()): ?><td><a href="?delete_item=<?= $item['inventory_item_id'] ?>#items-tab" class="btn-delete" onclick="return confirm('Delete?')"><i class="fas fa-trash"></i></a></td><?php endif; ?>
                             </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -319,7 +319,7 @@ $stockFilteredItems = array_values(array_filter($inventoryItems, static function
                 <?php if (isAdmin()): ?>
                 <div class="card">
                     <h2><i class="fas fa-plus"></i> Add Ingredient to Product</h2>
-                    <form method="POST">
+                    <form method="POST" action="inventory.php#recipes-tab">
                         <div class="form-group"><label>Product *</label><select name="product_id" required><option value="">-- Select product --</option><?php foreach ($products as $p): ?><option value="<?= $p['product_id'] ?>"><?= $p['emoji'] ?> <?= htmlspecialchars($p['product_name']) ?></option><?php endforeach; ?></select></div>
                         <div class="form-group"><label for="ingredient-item">Ingredient *</label><select id="ingredient-item" name="inventory_item_id" required><option value="">-- Select ingredient --</option><?php foreach ($inventoryItems as $item): ?><option value="<?= $item['inventory_item_id'] ?>" data-stock-unit="<?= htmlspecialchars($item['unit'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($item['item_name']) ?> (<?= formatInventoryQuantity($item['current_stock']) ?> <?= htmlspecialchars($item['unit']) ?>)</option><?php endforeach; ?></select></div>
                         <div class="form-row">
@@ -348,7 +348,7 @@ $stockFilteredItems = array_values(array_filter($inventoryItems, static function
                                 <?php foreach ($data['ingredients'] as $ing): ?>
                                 <div class="ingredient-chip">
                                     <span><?= htmlspecialchars($ing['item_name']) ?>: <?= formatInventoryQuantity($ing['quantity_used']) ?> <?= htmlspecialchars($ing['unit']) ?></span>
-                                    <?php if (isAdmin()): ?><a href="?delete_ingredient=<?= $ing['product_ingredient_id'] ?>" class="remove" onclick="return confirm('Remove?')">×</a><?php endif; ?>
+                                    <?php if (isAdmin()): ?><a href="?delete_ingredient=<?= $ing['product_ingredient_id'] ?>#recipes-tab" class="remove" onclick="return confirm('Remove?')">×</a><?php endif; ?>
                                 </div>
                                 <?php endforeach; ?>
                             </div>
@@ -445,8 +445,11 @@ $stockFilteredItems = array_values(array_filter($inventoryItems, static function
                 btn.classList.add('active');
                 document.getElementById(tab + '-tab').classList.add('active');
             }
-            if (window.location.hash === '#history-tab') {
-                showTab('history', document.querySelector('.tab-btn[onclick*="history"]'));
+            const tabByHash = {'#items-tab': 'items', '#recipes-tab': 'recipes', '#history-tab': 'history'};
+            const requestedTab = tabByHash[window.location.hash];
+            if (requestedTab) {
+                const tabIndex = requestedTab === 'items' ? 0 : requestedTab === 'recipes' ? 1 : 2;
+                showTab(requestedTab, document.querySelectorAll('.tab-btn')[tabIndex]);
             }
         </script>
     </div>
